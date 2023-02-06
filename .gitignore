@@ -1,0 +1,5 @@
+﻿build
+.vscode
+__pycache__
+dist
+page/full_test/tempCodeRunnerFile.py

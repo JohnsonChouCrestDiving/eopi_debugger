@@ -1,0 +1,3 @@
+[submodule "interface/bluetooth/bleak"]
+	path = interface/bluetooth/bleak
+	url = https://github.com/hbldh/bleak.git
