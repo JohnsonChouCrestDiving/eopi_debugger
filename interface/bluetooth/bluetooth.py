@@ -66,6 +66,11 @@ class Bluetooth_LE(QThread):
         #                             ]
         self.client = None
         self.subscribe_list = []
+
+    def scan(self, timeout=10, scan_cb=None):
+        if self.client != None:
+            self.client.scan(timeout=timeout, scan_cb=scan_cb)
+            
     
     def add_subscribe(self, uuid:str, indication:bool):
         """_summary_
@@ -74,7 +79,8 @@ class Bluetooth_LE(QThread):
             uuid (str): '6e400002-b5a3-f393-e0a9-e50e24dcca9e'
             indication (bool): True
         """           
-        self.subscribe_list.append({'uuid': uuid, 'indication': indication})
+        if uuid not in [i['uuid'] for i in self.subscribe_list]:
+            self.subscribe_list.append({'uuid': uuid, 'indication': indication})
 
     def device_is_connect(func):
         @functools.wraps(func)
@@ -135,6 +141,10 @@ class Bluetooth_LE(QThread):
     #     handle = self.device.get_handle(uuid)
     #     logger.debug('get_handle: {:02X}'.format(handle))
     #     return handle
+
+    @device_is_connect
+    def dicover_characteristics(self):
+        pass
 
     @device_is_connect
     def enable_all_notify(self):

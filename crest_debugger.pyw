@@ -40,7 +40,7 @@ do_in_thread = do_in_thread(worker)
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         Eng_mode = 1
-        hr_monitor_use = 1
+        hr_monitor_use = 0
         ble_command_use = 0
         cr1_ble_use = 1
         super(MainWindow, self).__init__()
@@ -52,7 +52,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # self.logger.msg.connect(self.set_UI)
         self.full_test = full_test()
         self.full_test_Layout.addWidget(self.full_test)
-        self.guiwindowtitle = r'crest debugger V00.00.02'
+        self.guiwindowtitle = r'EOPI debugger V00.00.02'
         # self.guiwindowtitle = r'FW_Loader_V01.17'
 
         if Eng_mode:
@@ -84,9 +84,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # self.ble.send([0x23])
 
 
-        self.tabWidget.setCurrentIndex(2)
+        self.tabWidget.setCurrentIndex(1)
         self.setWindowTitle(self.guiwindowtitle)
         self.setWindowIcon(QIcon('cl_icon.ico'))
+
+        worker.UI.connect(self.set_UI)
         
         ################################################
 
