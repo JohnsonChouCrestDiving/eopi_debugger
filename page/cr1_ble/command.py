@@ -61,6 +61,14 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
         self.scan_device_pushButton.clicked.connect(self.scan_device)
         self.ble_address_lineEdit.setInputMask('HH:HH:HH:HH:HH:HH')
 
+        self.selectPSensor_cb.currentIndexChanged.connect(self.change_current_pressure_sensor)
+        self.selectPSensor_cb.addItems(['TEST_PRESSURE_SENSOR', 'MS5837_30BA', 'NONE_OF_THIS_SENSOR'])
+        self.lineEdit_Pressure.setInputMask('9999')
+        self.lineEdit_Temp.setInputMask('99')
+        self.lineEdit_Pressure.setText('0000')
+        self.lineEdit_Temp.setText('00')
+        self.Btn_setPressure.clicked.connect(self.set_pSensor_pressure)
+        self.Btn_setTemp.clicked.connect(self.set_pSensor_temprature)
 
         if __name__ == '__main__':
             worker.UI.connect(self.set_UI)
@@ -97,6 +105,30 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
     def read_test(self):
         a = self.ble.read(uuid_app_rx, [0xa0, 0x00, 0x00, 0x00, 0xff], 1)
         print(a)
+        
+    @do_in_thread
+    def change_current_pressure_sensor(self):
+        cmd = [0xd0, 0x05, 0x00, self.selectPSensor_cb.currentIndex()]
+        cmd.append(self.ble.get_checksum(cmd))
+        self.ble.write(uuid_app_rx, cmd)
+
+    @do_in_thread
+    def set_pSensor_pressure(self):
+        if self.lineEdit_Pressure.text() != None:
+            cmd = [0xd0, 0x04, 0x00, cov.ASCII_to_u8_list(self.lineEdit_Pressure.text())]
+            cmd.append(self.ble.get_checksum(cmd))
+            self.ble.write(uuid_app_rx, cmd)
+        else:
+            pass
+        
+    @do_in_thread
+    def set_pSensor_temprature(self):
+        if self.lineEdit_Temp.text() != None:
+            cmd = [0xd0, 0x03, 0x00, cov.ASCII_to_u8_list(self.lineEdit_Temp.text())]
+            cmd.append(self.ble.get_checksum(cmd))
+            self.ble.write(uuid_app_rx, cmd)
+        else:
+            pass 
 
     def display_scan_data(self):
         for addr, datas in self.bt_device_list.items():

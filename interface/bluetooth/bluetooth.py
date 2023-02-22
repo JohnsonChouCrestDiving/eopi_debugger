@@ -196,6 +196,18 @@ class Bluetooth_LE(QThread):
     def disconnect(self):
         self.client.disconnect()
 
+    def get_checksum(self, data):
+        crc = 0x00
+        for i in range(len(data)):
+            crc ^= data[i]
+            for j in range(8):
+                if (crc & 0x80) != 0:
+                    crc = (crc << 1) ^ 0x07
+                else:
+                    crc <<= 1
+
+        return crc
+
 if __name__ == '__main__':
     a = Bluetooth_LE()
     a.select_interface(0)
