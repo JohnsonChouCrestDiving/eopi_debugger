@@ -205,8 +205,7 @@ class Bluetooth_LE(QThread):
                     crc = (crc << 1) ^ 0x07
                 else:
                     crc <<= 1
-
-        return crc
+        return crc & 0xff
 
 if __name__ == '__main__':
     a = Bluetooth_LE()

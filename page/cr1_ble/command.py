@@ -115,7 +115,10 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
     @do_in_thread
     def set_pSensor_pressure(self):
         if self.lineEdit_Pressure.text() != None:
-            cmd = [0xd0, 0x04, 0x00, cov.ASCII_to_u8_list(self.lineEdit_Pressure.text())]
+            cmd = [0xd0, 0x04, 0x00]
+            cmd.append(cov.i16_to_u8_list(int(self.lineEdit_Pressure.text()))[0])
+            cmd.append(cov.i16_to_u8_list(int(self.lineEdit_Pressure.text()))[1])
+            # print(cmd) #test code
             cmd.append(self.ble.get_checksum(cmd))
             self.ble.write(uuid_app_rx, cmd)
         else:
@@ -124,7 +127,8 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
     @do_in_thread
     def set_pSensor_temprature(self):
         if self.lineEdit_Temp.text() != None:
-            cmd = [0xd0, 0x03, 0x00, cov.ASCII_to_u8_list(self.lineEdit_Temp.text())]
+            cmd = [0xd0, 0x03, 0x00, int(self.lineEdit_Temp.text())]
+            # print(cmd) #test code
             cmd.append(self.ble.get_checksum(cmd))
             self.ble.write(uuid_app_rx, cmd)
         else:
