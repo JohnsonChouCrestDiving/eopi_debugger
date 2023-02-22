@@ -68,7 +68,7 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
         self.lineEdit_Pressure.setText('0000')
         self.lineEdit_Temp.setText('00')
         self.Btn_setPressure.clicked.connect(self.set_pSensor_pressure)
-        self.Btn_setTemp.clicked.connect(self.set_pSensor_temprature)
+        self.Btn_setTemp.clicked.connect(self.set_pSensor_temperature)
 
         if __name__ == '__main__':
             worker.UI.connect(self.set_UI)
@@ -114,25 +114,35 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
 
     @do_in_thread
     def set_pSensor_pressure(self):
-        if self.lineEdit_Pressure.text() != None:
-            cmd = [0xd0, 0x04, 0x00]
-            cmd.append(cov.i16_to_u8_list(int(self.lineEdit_Pressure.text()))[0])
-            cmd.append(cov.i16_to_u8_list(int(self.lineEdit_Pressure.text()))[1])
-            # print(cmd) #test code
-            cmd.append(self.ble.get_checksum(cmd))
-            self.ble.write(uuid_app_rx, cmd)
-        else:
+        try:
+            # to prevent any unexpected value case GUI crash
+            value = int(self.lineEdit_Pressure.text())
+            self.set_test_pressure_value(value)
+        except:
             pass
-        
+
     @do_in_thread
-    def set_pSensor_temprature(self):
-        if self.lineEdit_Temp.text() != None:
-            cmd = [0xd0, 0x03, 0x00, int(self.lineEdit_Temp.text())]
-            # print(cmd) #test code
-            cmd.append(self.ble.get_checksum(cmd))
-            self.ble.write(uuid_app_rx, cmd)
-        else:
-            pass 
+    def set_test_pressure_value(self, value:int):
+        cmd = [0xd0, 0x04, 0x00]
+        cmd.extend(cov.swap_endian(cov.i16_to_u8_list(value)))
+        cmd.append(self.ble.get_checksum(cmd))
+        self.ble.write(uuid_app_rx, cmd)
+
+    @do_in_thread
+    def set_pSensor_temperature(self):
+        try:
+            # to prevent any unexpected value case GUI crash
+            value = int(self.lineEdit_Temp.text())
+            self.set_test_temperature_value(value)
+        except:
+            pass
+
+    @do_in_thread
+    def set_test_temperature_value(self, value:int):
+        cmd = [0xd0, 0x03, 0x00]
+        cmd.extend(cov.swap_endian(cov.i16_to_u8_list(value)))
+        cmd.append(self.ble.get_checksum(cmd))
+        self.ble.write(uuid_app_rx, cmd)
 
     def display_scan_data(self):
         for addr, datas in self.bt_device_list.items():
