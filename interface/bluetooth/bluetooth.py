@@ -119,10 +119,10 @@ class Bluetooth_LE(QThread):
                 cmd()
                 self.connect_mark_time = time.time()
             
-            if self.check_timeout():
-                self.disconnect()
-                break
-            else:
+            # if self.check_timeout():
+            #     self.disconnect()
+            #     break
+            # else:
                 time.sleep(0.1)
 
     def check_timeout(self):

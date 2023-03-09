@@ -57,7 +57,7 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
         # self.cmd_write_tide_pushButton.clicked.connect(self.foo_send_tide_info)
         self.connect_pushButton.clicked.connect(self.connect_ble_device)
         self.disconnect_pushButton.clicked.connect(self.disconnect_ble_device)
-        self.show_characteristic_pushButton.clicked.connect(self.read_test)
+        self.show_characteristic_pushButton.clicked.connect(self.dive_sim)
         self.scan_device_pushButton.clicked.connect(self.scan_device)
         self.ble_address_lineEdit.setInputMask('HH:HH:HH:HH:HH:HH')
 
@@ -105,10 +105,60 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
     def read_test(self):
         a = self.ble.read(uuid_app_rx, [0xa0, 0x00, 0x00, 0x00, 0xff], 1)
         print(a)
+    
+    @do_in_thread
+    def dive_sim(self):
+        depth = 1000
+        depth_step = 302
+        time.sleep(0.5)
+        self.set_pSensor(0x00)
+        time.sleep(1)
+        self.set_test_pressure_value(depth)
+        cmd = [0xd0, 0x05, 0x01]
+        cmd.append(self.ble.get_checksum(cmd))
+        init_status = self.ble.read(uuid_app_rx, cmd, 20)
+        worker.UI.emit(lambda: self.display_textBrowser.append(f'{init_status}\n'))
+
+
+        for i in range(1, 6):
+            time.sleep(2)
+            depth+=depth_step
+            self.set_test_pressure_value(depth)
+            
+            cmd = [0xd0, 0x06, 0x01]
+            cmd.append(self.ble.get_checksum(cmd))
+            update_status = self.ble.read(uuid_app_rx, cmd, 160)
+            worker.UI.emit(lambda: self.display_textBrowser.append(f'{update_status}\n'))
+
+        for i in range(1, 6):
+            time.sleep(2)
+            depth-=depth_step
+            self.set_test_pressure_value(depth)
+
+            cmd = [0xd0, 0x06, 0x01]
+            cmd.append(self.ble.get_checksum(cmd))
+            update_status = self.ble.read(uuid_app_rx, cmd, 160)
+            worker.UI.emit(lambda: self.display_textBrowser.append(f'{update_status}\n'))
+
+        time.sleep(10)
+        
+        cmd = [0xd0, 0x07, 0x01]
+        cmd.append(self.ble.get_checksum(cmd))
+        end_status = self.ble.read(uuid_app_rx, cmd, 160)
+        worker.UI.emit(lambda: self.display_textBrowser.append(f'{end_status}\n'))
+
+
         
     @do_in_thread
     def change_current_pressure_sensor(self):
-        cmd = [0xd0, 0x05, 0x00, self.selectPSensor_cb.currentIndex()]
+        # cmd = [0xd0, 0x05, 0x00, self.selectPSensor_cb.currentIndex()]
+        # cmd.append(self.ble.get_checksum(cmd))
+        # self.ble.write(uuid_app_rx, cmd)
+        self.set_pSensor(self.selectPSensor_cb.currentIndex())
+
+    @do_in_thread
+    def set_pSensor(self, index):
+        cmd = [0xd0, 0x05, 0x00, index]
         cmd.append(self.ble.get_checksum(cmd))
         self.ble.write(uuid_app_rx, cmd)
 
