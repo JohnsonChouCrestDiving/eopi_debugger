@@ -11,9 +11,11 @@ import ctypes
 if __name__ == '__main__':
     from ble_bleak import ble_bleak
     from ble_bluegiga_dongle import ble_bluegiga_dongle
+    from ble_bleuio_dongle import ble_bleuio_dongle
 else:
     from .ble_bleak import ble_bleak
     from .ble_bluegiga_dongle import ble_bluegiga_dongle
+    from .ble_bleuio_dongle import ble_bleuio_dongle
     
 logging.getLogger().setLevel(0)
 from logging.config import fileConfig
@@ -106,10 +108,13 @@ class Bluetooth_LE(QThread):
     def select_interface(self, module):
         use_bleak = 0
         use_bluegiga_dongle = 1
+        use_bleuio_dongle = 2
         if module == use_bleak:
             self.client = ble_bleak()
         elif module == use_bluegiga_dongle:
             self.client = ble_bluegiga_dongle()
+        elif module == use_bleuio_dongle:
+            self.client = ble_bleuio_dongle()
         else:
             pass
     
