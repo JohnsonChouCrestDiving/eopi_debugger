@@ -153,6 +153,9 @@ class Data_convertor():
             text += '\n'
         text += '   ***********************************************\n'
         return text
+    
+    def u8_list_to_hexstr(self, u8list) -> str:
+        return ''.join(['{:02X}'.format(x) for x in u8list])
 
 
 if __name__ == '__main__':
