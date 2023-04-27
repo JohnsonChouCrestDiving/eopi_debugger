@@ -70,8 +70,10 @@ class ble_bleuio_dongle():
         return rx_res
 
     def _get_GAP_role(self):
-        rx_res = self._adapter.at_gapstatus()
-        elements = rx_res[0].split('\r\n')
+        while 1:
+            rx_res = self._adapter.at_gapstatus()
+            elements = rx_res[0].split('\r\n')
+            if elements.__len__() > 1: break
 
         GAP_role = elements[1] # 取出需要的元素
         logger.debug(f'ble-bleuio GAP role: {GAP_role}')
@@ -89,19 +91,25 @@ class ble_bleuio_dongle():
         """
     
     def is_connect(self):
-        rx_res = self._adapter.at_gapstatus()
-        elements = rx_res[0].split('\r\n')
+        return self._peripheral_GATT_table.__len__() > 0
+        # rx_response of bleuio dongle return isn't safe, so use GATT table to check connected status
+        # while 1:
+        #     rx_res = self._adapter.at_gapstatus()
+        #     elements = rx_res[0].split('\r\n')
+        #     if elements.__len__() > 3: break
 
-        connected_status = elements[3] # 取出需要的元素
-        if connected_status == 'Connected':
-            logger.info('ble-bleuio already connected peripheral')
-        else:
-            logger.warning('ble-bleuio not connected peripheral')
-        return connected_status == 'Connected'
+        # connected_status = elements[3] # 取出需要的元素
+        # if connected_status == 'Connected':
+        #     logger.info('ble-bleuio already connected peripheral')
+        # else:
+        #     logger.warning('ble-bleuio not connected peripheral')
+        # return connected_status == 'Connected'
     
     def _is_advertising(self):
-        rx_res = self._adapter.at_gapstatus()
-        elements = rx_res[0].split('\r\n')
+        while 1:
+            rx_res = self._adapter.at_gapstatus()
+            elements = rx_res[0].split('\r\n')
+            if elements.__len__() > 5: break
 
         advertising_status = elements[5] # 取出需要的元素
         logger.debug(f'ble-bleuio is {advertising_status}')
@@ -143,6 +151,7 @@ class ble_bleuio_dongle():
         try:
             rx_res = self._adapter.at_gapdisconnect()
             logger.info('ble-bleuio disconnect success')
+            self._peripheral_GATT_table = []
         except:
             logger.error(f'ble-bleuio disconnect fail: {rx_res}')
         self._adapter.stop_daemon()
@@ -273,7 +282,7 @@ class ble_bleuio_dongle():
 
     def _receive_notification(self, cwriteb_rx_res: list):
         try:
-            if cwriteb_rx_res[1] is not None:
+            if cwriteb_rx_res.__len__() == 2:
                 elements = cwriteb_rx_res[1].split('\r\n')
                 for i in range (len(elements)):
                     if elements[i] is None:
@@ -291,8 +300,24 @@ class ble_bleuio_dongle():
                         if handle in self._callbacks:
                             for callback in self._callbacks[handle]:
                                 callback(int(handle), list(unhexlify(Hex[2:])))
-            else: 
-                pass
+            elif cwriteb_rx_res.__len__() == 1: # 有時候會只有一個元素(機率性發生)
+                elements = cwriteb_rx_res[0].split('\r\n')
+                for i in range (len(elements)):
+                    if i < 6 or elements[i] is None:
+                        continue
+                    elif i % 6 == 0:
+                        handle_type, conn_idx_in_bleuio, handle, variable_length = (
+                            self._process_notification_header(elements[i])
+                        )
+                    elif i % 6 == 2:
+                        Value_received = elements[i].split(':')[1].strip()
+                    elif i % 6 == 3:
+                        Hex = elements[i].split(':')[1].strip()
+                    elif i % 6 == 4:
+                        msg_size = elements[i].split(':')[1].strip()
+                        if handle in self._callbacks:
+                            for callback in self._callbacks[handle]:
+                                callback(int(handle), list(unhexlify(Hex[2:])))
         except:
             logger.error(f'ble-bleuio convert cwriteb() Rx response fail,cwriteb_rx_res: {cwriteb_rx_res}')
         """

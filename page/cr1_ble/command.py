@@ -32,12 +32,16 @@ address2 = 'C9:AE:EB:DC:4D:FB'
 address3 = 'C3:B4:89:3C:FA:14'
 address4 = 'E8:E9:2E:EC:9E:8A'      # apollo3p
 
-uuid_app_rx = '05DC1984-3B9D-4585-A83B-45C4D3EB0001'
-uuid_app_tx = '05DC1984-3B9D-4585-A83B-45C4D3EB0002'
-uuid_ota_rx = '05DC1984-3B9D-4585-A83B-45C4D3EB1002'
-uuid_ota_tx = '05DC1984-3B9D-4585-A83B-45C4D3EB1003'
+uuid_app_rx = '00002760-08C2-11E1-9073-0E8AC72E2012'
+uuid_app_tx = '00002760-08C2-11E1-9073-0E8AC72E2013'
+uuid_ota_rx = '00002760-08C2-11E1-9073-0E8AC72E0001'
+uuid_ota_tx = '00002760-08C2-11E1-9073-0E8AC72E0002'
+uuid_ota_ack = '00002760-08C2-11E1-9073-0E8AC72E0003'
+uuid_dtp_rx = '00002760-08C2-11E1-9073-0E8AC72E0011'
+uuid_dtp_tx = '00002760-08C2-11E1-9073-0E8AC72E0012'
+uuid_dtp_ack = '00002760-08C2-11E1-9073-0E8AC72E0013'
 
-OTA_PKT_DATA_MAX_LEN = 13#512 # It requires larger than 48, because header needs sending in one packet
+OTA_PKT_DATA_MAX_LEN = 230 # It requires larger than 48, because header needs sending in one packet
 class eAmotaCommand(enum.Enum):
     AMOTA_CMD_UNKNOWN   = 0
     AMOTA_CMD_FW_HEADER = 1
@@ -96,9 +100,9 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
         # try:
         if 1:
             if self.ble.client == None:
-                self.ble.select_interface(1)
+                self.ble.select_interface(2)
             self.ble.add_subscribe(uuid_app_rx, True)
-            self.ble.add_subscribe(uuid_app_tx, True)
+            self.ble.add_subscribe(uuid_app_tx, False)
             self.ble.add_subscribe(uuid_ota_rx, False)
             self.ble.add_subscribe(uuid_ota_tx, False)
             self.ble.connect(address4)
@@ -212,16 +216,20 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
             ############ Check if the rest of the data can be downloaded at one time ############
             if dataWillBeSent.__len__() - next_packet_start_idx > OTA_PKT_DATA_MAX_LEN: 
                 data_buf.clear()
-                data_buf.extend(dataWillBeSent[next_packet_start_idx: next_packet_start_idx + OTA_PKT_DATA_MAX_LEN - 1])
+                data_buf.extend(dataWillBeSent[next_packet_start_idx: next_packet_start_idx + OTA_PKT_DATA_MAX_LEN])
                 next_packet_start_idx += OTA_PKT_DATA_MAX_LEN
+            else:
+                data_buf.clear()
+                data_buf.extend(dataWillBeSent[next_packet_start_idx:])
+                next_packet_start_idx += data_buf.__len__() + 1 
                 
             ############################ generate and send packet ###############################
             packet.clear()
             packet.extend(cov.swap_endian(cov.i16_to_u8_list(data_buf.__len__() + 4)))                  # length*2u
             packet.append(cmd.value)                                                                    # header:OTA_cmd*1u
-            packet.extend(cov.swap_endian(data_buf))                                                    # data:0~64u
-            packet.extend(cov.swap_endian(cov.i32_to_u8_list(self.ble.get_checksum_crc32(cov.swap_endian(data_buf)))))   # checksum*4u
-            reply = self.ble.read(uuid_ota_rx, packet, 8) # send packet and get reply
+            packet.extend(data_buf)                                                                     # data:0~64u
+            packet.extend(cov.swap_endian(cov.i32_to_u8_list(self.ble.get_checksum_crc32(data_buf))))   # checksum*4u
+            reply = self.ble.read(uuid_ota_rx, packet, 1) # send packet and get reply
             logger.info('Number %d packet, Send %d bytes data, rest of the data %d bytes.', 
                         packet_serial_number, 
                         data_buf.__len__(), 
@@ -229,45 +237,45 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
 
             ################## return (according to value in data of reply) ######################
             # reply: [{'source': <str>, 'data': {'handle': <number>, 'value': <list>}}]
-            value_in_reply = reply[0]['data']['value'] # [length*2u, cmd*1u, status*1u, data:0~4u]
-            print('RES:', value_in_reply)
-            if value_in_reply.__len__() > 3:
-                if value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_SUCCESS.value:
-                    logger.info('Send packet success.')
-                elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_CRC_ERROR.value:
-                    logger.error('Send packet failed, status = AMOTA_STATUS_CRC_ERROR.')
-                    return False
-                elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_INVALID_HEADER_INFO.value:
-                    logger.error('Send packet failed, status = AMOTA_STATUS_INVALID_HEADER_INFO.')
-                    return False
-                elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_INVALID_PKT_LENGTH.value:
-                    logger.error('Send packet failed, status = AMOTA_STATUS_INVALID_PACKET_LENGTH.')
-                    return False
-                elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_INSUFFICIENT_BUFFER.value:
-                    logger.error('Send packet failed, status = AMOTA_STATUS_INSUFFICIENT_BUFFER.')
-                    return False
-                elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_INSUFFICIENT_FLASH.value:
-                    logger.error('Send packet failed, status = AMOTA_STATUS_INSUFFICIENT_FLASH.')
-                    return False
-                elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_UNKNOWN_ERROR.value:
-                    logger.error('Send packet failed, status = AMOTA_STATUS_UNKNOWN_ERROR.')
-                    return False
-                elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_FLASH_WRITE_ERROR.value:
-                    logger.error('Send packet failed, status = AMOTA_STATUS_FLASH_WRITE_ERROR.')
-                    return False
-                elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_MAX.value:
-                    logger.error('Send packet failed, status = AMOTA_STATUS_MAX.')
-                    return False
+            if reply.__len__() > 0:
+                value_in_reply = reply[0]['data']['value'] # [length*2u, cmd*1u, status*1u, data:0~4u]
+                if value_in_reply.__len__() > 3:
+                    if value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_SUCCESS.value:
+                        logger.info('Send packet success.')
+                        time.sleep(0.01)
+                    elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_CRC_ERROR.value:
+                        logger.error('Send packet failed, status = AMOTA_STATUS_CRC_ERROR.')
+                        return False
+                    elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_INVALID_HEADER_INFO.value:
+                        logger.error('Send packet failed, status = AMOTA_STATUS_INVALID_HEADER_INFO.')
+                        return False
+                    elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_INVALID_PKT_LENGTH.value:
+                        logger.error('Send packet failed, status = AMOTA_STATUS_INVALID_PACKET_LENGTH.')
+                        return False
+                    elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_INSUFFICIENT_BUFFER.value:
+                        logger.error('Send packet failed, status = AMOTA_STATUS_INSUFFICIENT_BUFFER.')
+                        return False
+                    elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_INSUFFICIENT_FLASH.value:
+                        logger.error('Send packet failed, status = AMOTA_STATUS_INSUFFICIENT_FLASH.')
+                        return False
+                    elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_UNKNOWN_ERROR.value:
+                        logger.error('Send packet failed, status = AMOTA_STATUS_UNKNOWN_ERROR.')
+                        return False
+                    elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_FLASH_WRITE_ERROR.value:
+                        logger.error('Send packet failed, status = AMOTA_STATUS_FLASH_WRITE_ERROR.')
+                        return False
+                    elif value_in_reply[3] == eAmotaStatus.AMOTA_STATUS_MAX.value:
+                        logger.error('Send packet failed, status = AMOTA_STATUS_MAX.')
+                        return False
             else:
                 logger.warning('No reply or reply out time.')
-                return False
         
         return True
 
     @do_in_thread
     def send_FW_header(self) -> bool:
         fw_header_read = bytearray([0]*48) # hearder size 固定是 48 bytes
-        fw_header_read = self.__openedFile.read()
+        fw_header_read = self.__openedFile.read(48)
         
         if fw_header_read.__len__() < 48: # bin file for update < 48 bytes
             logger.warning('Invalid packed firmware length.')
@@ -275,6 +283,7 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
         
         self.__fileSize = ((fw_header_read[11] & 255) << 24) + ((fw_header_read[10] & 255) << 16) + ((fw_header_read[9] & 255) << 8) + (fw_header_read[8] & 255)
         logger.info('File size = ' + str(self.__fileSize) + '.')
+        logger.debug(f'Fw header size = {fw_header_read.__len__()} bytes.')
         # print('Send fw header ' , fw_header_read, '.')
 
         if self.send_OTA_packet(eAmotaCommand.AMOTA_CMD_FW_HEADER, fw_header_read):
