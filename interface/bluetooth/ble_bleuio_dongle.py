@@ -5,7 +5,7 @@ import re
 import time
 import logging
 
-from bleuio_lib.bleuio_funcs import BleuIo
+from .bleuio.bleuio_lib.bleuio_funcs import BleuIo
 from collections import defaultdict
 from datetime import datetime
 from logging.config import fileConfig
@@ -40,7 +40,7 @@ class ble_bleuio_dongle():
         self._peripheral_GATT_table = []
         self._callbacks = defaultdict(set)
     
-    def connect(self, mac_address, ble_address_type = BLEAddressType.public, timeout = 2.5,
+    def connect(self, mac_address, ble_address_type = BLEAddressType.public, timeout = 0,
                 intv_min = '30', intv_max = '30', latency = '0', sup_timeout = '1000'):
     # intv_min:7.5ms~4s, intv_max:7.5ms~4s, slave_latency:0~499, sup_timeout:100ms~32s
     # defult: intv_min=30ms, intv_max=30ms, slave_latency=0, sup_timeout=1000ms
@@ -56,14 +56,14 @@ class ble_bleuio_dongle():
         elif ble_address_type == BLEAddressType.random:
             ble_addr = "[1]" + mac_address
 
+        self._adapter.atds(False)
         logger.info(f'ble-bleuio connect {ble_addr}...')
-
-        if intv_min!='30' or intv_max!='30' or latency!='0' or sup_timeout!='1000':
+        if timeout != 0 or intv_min!='30' or intv_max!='30' or latency!='0' or sup_timeout!='1000':
             rx_res = self._adapter.at_gapconnect(ble_addr, timeout,
                                                  intv_min, intv_max, 
                                                  latency, sup_timeout)
         else:
-            rx_res = self._adapter.at_gapconnect(ble_addr, timeout)
+            rx_res = self._adapter.at_gapconnect(ble_addr)
 
         self._generate_GATT_table()
 
@@ -130,19 +130,26 @@ class ble_bleuio_dongle():
         rx_res = self._adapter.at_set_noti(handle)
         return rx_res
     
-    def send_command(self, uuid:str, cmd_list:list):
+    def send_command(self, uuid:str, cmd_list:list, is_read: bool):
         handle = self._get_handle(uuid)
         cmd = cov.u8_list_to_hexstr(cmd_list)
         logger.info(f'ble-bleuio send command: handle:{handle}, command:{cmd}')
 
         try:
-            if handle is not None:
-                rx_res = self._adapter.at_gattcwriteb(handle, cmd)
-                logger.info(f'ble-bleuio {uuid} send command status: success')
-                self._receive_notification(rx_res)
-                return rx_res
-            else:
+            if handle is None:
                 logger.error(f'ble-bleuio uuid: {uuid} does not exist')
+            else:
+                if len(cmd) < 1:
+                    logger.warning('ble-bleuio command is empty')
+                if is_read:
+                    rx_res = self._adapter.at_gattcwriteb(handle, cmd)
+                    logger.info(f'ble-bleuio {uuid} send command status: success')
+                    self._receive_notification(rx_res)
+                    return rx_res
+                else:
+                    rx_res = self._adapter.at_gattcwritewrb(handle, cmd)
+                    logger.info(f'ble-bleuio {uuid} send command status: success')
+                    return rx_res
         except:
             logger.error(f'ble-bleuio {uuid} send command status: fail')
  
@@ -154,7 +161,7 @@ class ble_bleuio_dongle():
             self._peripheral_GATT_table = []
         except:
             logger.error(f'ble-bleuio disconnect fail: {rx_res}')
-        self._adapter.stop_daemon()
+        # self._adapter.stop_daemon()
         return rx_res
     
     def _get_handle(self, uuid:str) -> str:
@@ -215,7 +222,8 @@ class ble_bleuio_dongle():
         """
         # 原始字符串
         logger.debug(f'ble-bleuio get all services...')
-        s = ''.join(self._adapter.at_get_services() if rx_res is None else rx_res)
+        if len(self._adapter.atds(True)) != 0:
+            s = ''.join(self._adapter.at_get_services() if rx_res is None else rx_res)
 
         # 使用正則表達式將字符串轉換為list
         lst = re.findall(r'\t(\d+)\s+([\w-]+)\s+(.*?)\s*$', s, re.M)

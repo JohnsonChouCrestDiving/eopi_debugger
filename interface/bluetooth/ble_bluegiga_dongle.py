@@ -65,7 +65,7 @@ class ble_bluegiga_dongle():
     def is_connect(self):
         return self.device != None
 
-    def send_command(self, uuid, datas:list):
+    def send_command(self, uuid, datas:list, is_read = False):
         logger.debug(f'ble-bluegiga send command: uuid: {uuid}, command:{datas}')
         self.device.char_write(uuid, bytearray(datas))
         logger.debug(f'ble-bluegiga {uuid} send command status: success')

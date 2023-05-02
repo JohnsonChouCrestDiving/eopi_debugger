@@ -229,7 +229,12 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
             packet.append(cmd.value)                                                                    # header:OTA_cmd*1u
             packet.extend(data_buf)                                                                     # data:0~64u
             packet.extend(cov.swap_endian(cov.i32_to_u8_list(self.ble.get_checksum_crc32(data_buf))))   # checksum*4u
-            reply = self.ble.read(uuid_ota_rx, packet, 1) # send packet and get reply
+            if cmd == eAmotaCommand.AMOTA_CMD_FW_DATA:
+                self.ble.write(uuid_ota_rx, packet)
+                reply = []
+                time.sleep(0.21)
+            else:
+                reply = self.ble.read(uuid_ota_rx, packet, 1)
             logger.info('Number %d packet, Send %d bytes data, rest of the data %d bytes.', 
                         packet_serial_number, 
                         data_buf.__len__(), 

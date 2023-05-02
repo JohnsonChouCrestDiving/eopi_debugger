@@ -162,8 +162,8 @@ class Bluetooth_LE(QThread):
         self.client.subscribe(uuid, callback=self.handle_received_data, indication=indication)
     
     @device_is_connect
-    def send_command(self, uuid, command:list):
-        self.client.send_command(uuid, command)
+    def send_command(self, uuid, command:list, is_read:bool):
+        self.client.send_command(uuid, command, is_read)
     
     @device_is_connect
     def handle_received_data(self, handle, value):
@@ -173,11 +173,11 @@ class Bluetooth_LE(QThread):
         self.rx_data.emit({'source': 'BLE', 'data': {'handle': handle, 'value': list(value)}})
 
     def write(self, uuid, command):
-        self.send_command(uuid, command)
-        self.get_data(1)        #clear buffer
+        self.send_command(uuid, command, False)
+        self.get_data(1, 0)        #clear buffer
 
     def read(self, uuid, command, num)->list:
-        self.send_command(uuid, command)
+        self.send_command(uuid, command, True)
         return self.get_data(num)      
 
     def get_data(self, num, timeout=5):
