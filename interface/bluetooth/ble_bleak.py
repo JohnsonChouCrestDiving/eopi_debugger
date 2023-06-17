@@ -64,7 +64,7 @@ class ble_bleak():
     def get_service_uuid(self)->list:
         return [service.uuid for service in self.client.services]
 
-    def send_command(self, uuid, datas:list):
+    def send_command(self, uuid, datas:list, is_read = False):
         logger.debug(f'ble-bleak send command: uuid: {uuid}, command:{datas}')
         self.loop.run_until_complete(self._send_command_async(uuid, datas))
 

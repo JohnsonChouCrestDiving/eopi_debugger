@@ -310,7 +310,7 @@
      <height>131</height>
     </rect>
    </property>
-   <layout class="QVBoxLayout" name="pressureSensorTestBox">
+   <layout class="QVBoxLayout" name="Layout_pressureSensor">
     <item>
      <widget class="QComboBox" name="selectPSensor_cb">
       <property name="font">
@@ -384,6 +384,45 @@
        </widget>
       </item>
      </layout>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QWidget" name="horizontalLayoutWidget_2">
+   <property name="geometry">
+    <rect>
+     <x>670</x>
+     <y>20</y>
+     <width>541</width>
+     <height>41</height>
+    </rect>
+   </property>
+   <layout class="QHBoxLayout" name="Layout_feOtaUpdata">
+    <item>
+     <widget class="QPushButton" name="Btn_selectFile">
+      <property name="font">
+       <font>
+        <pointsize>14</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>select file</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QTextEdit" name="textEdit_filePath"/>
+    </item>
+    <item>
+     <widget class="QPushButton" name="Btn_updataFw">
+      <property name="font">
+       <font>
+        <pointsize>14</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>updata FW</string>
+      </property>
+     </widget>
     </item>
    </layout>
   </widget>
