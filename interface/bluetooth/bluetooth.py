@@ -5,6 +5,7 @@ import functools
 
 from PyQt5.QtCore import *
 from collections import deque
+from enum import Enum
 import logging
 import time
 import ctypes
@@ -106,14 +107,11 @@ class Bluetooth_LE(QThread):
             return args_func_work
 
     def select_interface(self, module):
-        use_bleak = 0
-        use_bluegiga_dongle = 1
-        use_bleuio_dongle = 2
-        if module == use_bleak:
+        if module == dongle.bleak.value:
             self.client = ble_bleak()
-        elif module == use_bluegiga_dongle:
+        elif module == dongle.blueGiga.value:
             self.client = ble_bluegiga_dongle()
-        elif module == use_bleuio_dongle:
+        elif module == dongle.bleuio.value:
             self.client = ble_bleuio_dongle()
         else:
             pass
@@ -244,6 +242,11 @@ class Bluetooth_LE(QThread):
                 else:
                     crc <<= 1
         return crc & 0xff
+
+class dongle(Enum):
+    bleak       = 0
+    blueGiga    = 1
+    bleuio      = 2
 
 if __name__ == '__main__':
     a = Bluetooth_LE()

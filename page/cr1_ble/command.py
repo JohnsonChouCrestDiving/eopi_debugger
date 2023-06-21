@@ -27,6 +27,7 @@ if __name__ == '__main__':
 else:
     from .UI_ble_command import Ui_CR1_ble_command
     
+DONGLE_USED = 2
 address = 'C2:5E:51:CF:C5:2E'
 address2 = 'C9:AE:EB:DC:4D:FB'
 address3 = 'C3:B4:89:3C:FA:14'
@@ -85,7 +86,7 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
         # self.cmd_write_tide_pushButton.clicked.connect(self.foo_send_tide_info)
         self.connect_pushButton.clicked.connect(self.connect_ble_device)
         self.disconnect_pushButton.clicked.connect(self.disconnect_ble_device)
-        self.show_characteristic_pushButton.clicked.connect(self.dive_sim)
+        self.show_characteristic_pushButton.clicked.connect(self.read_test)
         self.scan_device_pushButton.clicked.connect(self.scan_device)
         self.ble_address_lineEdit.setInputMask('HH:HH:HH:HH:HH:HH')
         self.Btn_selectFile.clicked.connect(self.select_file)
@@ -108,7 +109,7 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
         # try:
         if 1:
             if self.ble.client == None:
-                self.ble.select_interface(2)
+                self.ble.select_interface(DONGLE_USED)
             self.ble.add_subscribe(uuid_app_rx, True)
             self.ble.add_subscribe(uuid_app_tx, False)
             self.ble.add_subscribe(uuid_ota_rx, False)
@@ -128,7 +129,7 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
         worker.UI.emit(lambda: self.display_textBrowser.append(f'RSSI filter = {self.scan_rssi_filter}'))
         self.bt_device_list = {}
         if self.ble.client == None:
-            self.ble.select_interface(1)
+            self.ble.select_interface(DONGLE_USED)
         # self.ble.write('E0262760-08C2-11E1-9073-0E8AC72E2A23', [0x00])
         self.ble.scan(timeout=5, scan_cb=self.store_scan_data)
         self.display_scan_data()
@@ -242,10 +243,16 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
 
     def store_scan_data(self, msg, a, b):
         for key, value in msg.items():
-            device_name = value.name
-            address = value.address
-            rssi = value.rssi
-            packet_data = value.packet_data
+            if DONGLE_USED == 1:
+                device_name = value.name
+                address = value.address
+                rssi = value.rssi
+                packet_data = value.packet_data
+            elif DONGLE_USED == 2:
+                device_name = value['name']
+                address = value['address']
+                rssi = value['rssi']
+                packet_data = value['packet_data']
             if rssi > self.scan_rssi_filter:
                 if address not in self.bt_device_list.keys():
                     print(address, self.bt_device_list.keys())
@@ -256,7 +263,6 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
                         }
                 else:
                     self.bt_device_list[address]['device_name'] = device_name if device_name != ' ' else self.bt_device_list[address]['device_name']
-
     def add_checksum(self, list):
         pass
 

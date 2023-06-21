@@ -12,6 +12,7 @@ from logging.config import fileConfig
 from binascii import unhexlify
 from common.convert import Data_convertor as cov
 from pygatt.backends import BLEBackend, Characteristic, BLEAddressType
+from pygatt.backends.bgapi.bgapi import AdvertisingAndScanInfo
 
 
 def resource_path(relative):
@@ -265,11 +266,14 @@ class ble_bleuio_dongle():
             logger.error(f'ble-bleuio enable notify {uuid} status: ERROR !!!')
 
     def scan(self, timeout, scan_cb=None):
+        if self._get_GAP_role() != 'Central role':
+            self._set_in_central_role()
         logger.info(f'ble-bleuio scan ...')
         self._adapter.at_gapscan(timeout=timeout)
-        time.sleep(3)
+        devices = self._process_scan_response()
         logger.debug("stop scan")
         self._adapter.stop_scan()
+        scan_cb(devices, 'ff:ff:ff:ff:ff:ff', 0) # The last two parameters will be put into addr and pecket_type in bluegiga api
 
     def _process_notification_header(self, data: list):
         header_info = data.split(' ')
@@ -289,40 +293,26 @@ class ble_bleuio_dongle():
         return (indi_or_noti_handle, conn_idx, handle, length)
 
     def _receive_notification(self, cwriteb_rx_res: list):
+        """
+        把整個list用join()變成同一個字串,再用\r\n分割,然後再去分析
+        """
         try:
-            if cwriteb_rx_res.__len__() == 2:
-                elements = cwriteb_rx_res[1].split('\r\n')
-                for i in range (len(elements)):
-                    if elements[i] is None:
-                        continue
-                    elif i % 6 == 3:
-                        handle_type, conn_idx_in_bleuio, handle, variable_length = (
-                            self._process_notification_header(elements[i])
-                        )
-                    elif i % 6 == 5:
-                        Value_received = elements[i].split(':')[1].strip()
-                    elif i != 0 and i % 6 == 0:
-                        Hex = elements[i].split(':')[1].strip()
-                    elif i != 1 and i % 6 == 1:
-                        msg_size = elements[i].split(':')[1].strip()
-                        if handle in self._callbacks:
-                            for callback in self._callbacks[handle]:
-                                callback(int(handle), list(unhexlify(Hex[2:])))
-            elif cwriteb_rx_res.__len__() == 1: # 有時候會只有一個元素(機率性發生)
-                elements = cwriteb_rx_res[0].split('\r\n')
-                for i in range (len(elements)):
-                    if i < 6 or elements[i] is None:
+            if len(cwriteb_rx_res) != 0:
+                data_first_process = ''.join(cwriteb_rx_res)
+                data_second_process = data_first_process.split('\r\n')
+                for i in range (len(data_second_process)):
+                    if i < 6 or data_second_process[i] is None:
                         continue
                     elif i % 6 == 0:
                         handle_type, conn_idx_in_bleuio, handle, variable_length = (
-                            self._process_notification_header(elements[i])
+                            self._process_notification_header(data_second_process[i])
                         )
                     elif i % 6 == 2:
-                        Value_received = elements[i].split(':')[1].strip()
+                        Value_received = data_second_process[i].split(':')[1].strip()
                     elif i % 6 == 3:
-                        Hex = elements[i].split(':')[1].strip()
+                        Hex = data_second_process[i].split(':')[1].strip()
                     elif i % 6 == 4:
-                        msg_size = elements[i].split(':')[1].strip()
+                        msg_size = data_second_process[i].split(':')[1].strip()
                         if handle in self._callbacks:
                             for callback in self._callbacks[handle]:
                                 callback(int(handle), list(unhexlify(Hex[2:])))
@@ -357,6 +347,65 @@ class ble_bleuio_dongle():
                 Size: 3\r\n'
             ]
             """
+
+    def _process_scan_response(self):
+        """
+        return = {
+            (str)address: {name: (str)name, address: (str)address, rssi: (int)rssi, packet_data: None},
+            ...
+        }
+        """
+        rtn = {}
+        devces = ''.join(self._adapter.rx_scanning_results[1:]).split('\r\n\r\n')
+        try:
+            for dev_data in devces:
+                data_items  = dev_data.split(' ')
+                # This information is only fetched if the device has a name.
+                # Device name may include spaces.
+                name = dev_data.split("(")[1].split(")")[0] if len(data_items) > 6 else 'Unknown'
+
+                if data_items[2] not in rtn:
+                    rtn[data_items[2]] = {
+                        'name': name, 
+                        'address': data_items[2], 
+                        'rssi': int(data_items[5]), 
+                        'pkt_dat': None
+                    }
+                else:
+                    if rtn[data_items[2]]['name'] != name:
+                        rtn[data_items[2]]['name'] = name
+                    if rtn[data_items[2]]['rssi'] != int(data_items[5]):
+                        rtn[data_items[2]]['rssi'] = int(data_items[5])
+                logger.debug(
+                    f'Received a scan response from {data_items[2]} with rssi={int(data_items[5])} dBM'
+                )
+        except:
+            logger.error(f'ble-bleuio convert scan response fail, dev_data: {dev_data}')
+            
+        return rtn
+        """
+        The rx_scanning_results example:
+        [
+            '\r\r\nSCANNING...\r\n', 
+            '\r\n[01] Device: [1]15:D8:29:9B:89:6F  RSSI: -44\r\n', 
+            '\r\n[02] Device: [1]24:C2:BB:B8:21:A0  RSSI: -78\r\n\r\n[03] Device: [1]0F:36:2A:F9:C2:93  RSSI: -71\r\n\r\n[04] Device: [1]0B:AB:39:7B:52:93  RSSI: -81\r\n\r\n[05] Device: [1]21:1C:4C:1C:23:30  RSSI: -61\r\n\r\n[06] Device: [1]2D:D9:D8:5E:63:D1  RSSI: -53\r\n', 
+            '\r\n[07] Device: [1]42:D3:6E:74:E8:2E  RSSI: -63\r\n\r\n[08] Device: [1]E8:7A:85:7D:30:83  RSSI: -75\r\n\r\n[08] Device: [1]E8:7A:85:7D:30:83  RSSI: -75 (Buds2 Pro)\r\n\r\n[09] Device: [1]50:BF:BD:1D:9D:BE  RSSI: -75\r\n\r\n[10] Device: [1]79:D9:20:E5:9C:28  RSSI: -68\r\n', 
+            '\r\n[11] Device: [1]70:07:AA:23:1E:A9  RSSI: -77\r\n\r\n[12] Device: [1]03:04:9A:36:93:CB  RSSI: -76\r\n\r\n[13] Device: [0]18:EE:69:2B:C4:0C  RSSI: -78\r\n\r\n[14] Device: [1]76:82:88:3B:5F:20  RSSI: -60\r\n\r\n[15] Device: [1]E7:F4:C0:FE:9C:3D  RSSI: -79\r\n\r\n[16] Device: [1]4C:C8:33:58:FC:D9  RSSI: -77\r\n', 
+            '\r\n[17] Device: [1]74:7A:14:FD:E6:1B  RSSI: -83\r\n', 
+            '\r\n[18] Device: [1]C0:A0:0D:52:07:5B  RSSI: -66 (CREST-CR5\x03)\r\n\r\n[19] Device: [1]13:29:61:D8:EA:48  RSSI: -77\r\n\r\n[20] Device: [1]10:A1:4F:EB:0E:05  RSSI: -66\r\n', 
+            '\r\n[21] Device: [0]44:73:D6:50:63:25  RSSI: -86\r\n\r\n[21] Device: [0]44:73:D6:50:63:25  RSSI: -86 (MeetUp Soft Remote)\r\n\r\n[22] Device: [1]C0:07:64:16:74:97  RSSI: -57 (CREST-CR5\x03)\r\n', 
+            '\r\n[23] Device: [1]2F:80:CA:D7:42:7B  RSSI: -77\r\n', 
+            '\r\n[24] Device: [1]C3:84:6F:29:BE:67  RSSI: -81 (CREST-CR5\x03)\r\n', 
+            '\r\n[25] Device: [1]CA:DE:47:DE:62:FC  RSSI: -83 (CREST-CR5\x03)\r\n', 
+            '\r\n[26] Device: [1]53:41:13:DD:E6:84  RSSI: -77\r\n', 
+            '\r\n[27] Device: [1]D0:4E:F6:74:A6:2A  RSSI: -56\r\n', 
+            '\r\n[28] Device: [1]CC:5E:49:15:CF:36  RSSI: -84 (CREST-CR5\x03)\r\n\r\n[29] Device: [1]CE:37:A8:0E:3A:92  RSSI: -91 (CREST-CR5\x03)\r\n', 
+            '\r\n[30] Device: [1]70:73:89:5F:8F:95  RSSI: -90\r\n', 
+            '\r\n[31] Device: [1]C9:21:EE:87:53:D4  RSSI: -72\r\n', 
+            '\r\n[32] Device: [1]C6:3B:D5:50:11:8C  RSSI: -85 (CREST-CR5\x03)\r\n', 
+            '\r\n[33] Device: [1]FD:39:95:F3:F8:24  RSSI: -72 (SMI-M1S)\r\n'
+        ]
+        """
 
     # def read(self, uuid):
     #     logger.debug(f'ble-bleuio read: {uuid}')
