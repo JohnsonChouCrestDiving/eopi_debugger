@@ -137,9 +137,10 @@ class BleuIo(object):
                 if self._debug:
                     print("FROM BUFFER: " + self.rx_buffer.decode("utf-8", "ignore"))
                 if self._scanning:
-                    self.rx_scanning_results.append(
-                        self.rx_buffer.decode("utf-8", "ignore")
-                    )
+                    if "Device" in self.rx_buffer.decode("utf-8", "ignore"):
+                        self.rx_scanning_results.append(
+                            self.rx_buffer.decode("utf-8", "ignore")
+                        )
                 if self._spsstream:
                     self.rx_sps_results.append(self.rx_buffer.decode("utf-8", "ignore"))
                 if not self.__get_rx_state() == "rx_ready" and not self._scanning:

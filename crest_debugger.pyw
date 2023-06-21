@@ -43,6 +43,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         hr_monitor_use = 0
         ble_command_use = 0
         cr1_ble_use = 1
+        factory_test_func_use = 1
         super(MainWindow, self).__init__()
         self.setupUi(self)
         self.dongles_in_port = []
@@ -72,6 +73,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 from page.cr1_ble.command import cr1_ble_command
                 self.cr1_ble_command = cr1_ble_command()
                 self.tabWidget.addTab(self.cr1_ble_command, 'cr1_ble_command')
+
+            if factory_test_func_use:
+                from page.factory_test.function import factory_test_func
+                self.factory_test = factory_test_func()
+                self.tabWidget.addTab(self.factory_test, 'factory_test_function')
 
             # self.ble = Bluetooth_LE()
             # self.ble.start()

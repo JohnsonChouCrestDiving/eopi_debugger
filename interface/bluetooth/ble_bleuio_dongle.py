@@ -47,7 +47,7 @@ class ble_bleuio_dongle():
     # defult: intv_min=30ms, intv_max=30ms, slave_latency=0, sup_timeout=1000ms
         if self.is_connect():
             logger.info('ble-bleuio disconnected previous connection...')
-            self._adapter.at_gapdisconnect()
+            self.disconnect()
         
         if self._get_GAP_role() != 'Central role':
             self._set_in_central_role()
@@ -73,7 +73,10 @@ class ble_bleuio_dongle():
     def _get_GAP_role(self):
         while 1:
             rx_res = self._adapter.at_gapstatus()
-            elements = rx_res[0].split('\r\n')
+            try:
+                elements = rx_res[0].split('\r\n')
+            except:
+                continue
             if elements.__len__() > 1: break
 
         GAP_role = elements[1] # 取出需要的元素
@@ -92,24 +95,30 @@ class ble_bleuio_dongle():
         """
     
     def is_connect(self):
-        return self._peripheral_GATT_table.__len__() > 0
         # rx_response of bleuio dongle return isn't safe, so use GATT table to check connected status
-        # while 1:
-        #     rx_res = self._adapter.at_gapstatus()
-        #     elements = rx_res[0].split('\r\n')
-        #     if elements.__len__() > 3: break
+        # return self._peripheral_GATT_table.__len__() > 0
+        while 1:
+            rx_res = self._adapter.at_gapstatus()
+            try:
+                elements = rx_res[0].split('\r\n')
+            except:
+                continue
+            if elements.__len__() > 3: break
 
-        # connected_status = elements[3] # 取出需要的元素
-        # if connected_status == 'Connected':
-        #     logger.info('ble-bleuio already connected peripheral')
-        # else:
-        #     logger.warning('ble-bleuio not connected peripheral')
-        # return connected_status == 'Connected'
+        connected_status = elements[3] # 取出需要的元素
+        if connected_status == 'Connected':
+            logger.info('ble-bleuio already connected peripheral')
+        else:
+            logger.warning('ble-bleuio not connected peripheral')
+        return connected_status == 'Connected'
     
     def _is_advertising(self):
         while 1:
             rx_res = self._adapter.at_gapstatus()
-            elements = rx_res[0].split('\r\n')
+            try:
+                elements = rx_res[0].split('\r\n')
+            except:
+                continue
             if elements.__len__() > 5: break
 
         advertising_status = elements[5] # 取出需要的元素
@@ -157,9 +166,9 @@ class ble_bleuio_dongle():
     def disconnect(self):
         logger.info(f'ble-bleuio disconnect...')
         try:
-            rx_res = self._adapter.at_gapdisconnect()
-            logger.info('ble-bleuio disconnect success')
+            rx_res = self._adapter.at_gapdisconnectall()
             self._peripheral_GATT_table = []
+            logger.info('ble-bleuio disconnect success')
         except:
             logger.error(f'ble-bleuio disconnect fail: {rx_res}')
         # self._adapter.stop_daemon()
@@ -170,6 +179,9 @@ class ble_bleuio_dongle():
         handle = None
         logger.debug(f'ble-bleuio get {uuid} handle...')
 
+        for debug_cnt in range(3):
+            if len(self._peripheral_GATT_table) == 0:
+                self._generate_GATT_table()
         for item in self._peripheral_GATT_table:
             if item[2] == uuid:
                 handle = item[0]
@@ -182,7 +194,7 @@ class ble_bleuio_dongle():
             logger.warning(f'ble-bleuio No found characteristic matching {uuid}')
             return None
     
-    def _generate_GATT_table(self, rx_res = None):
+    def _generate_GATT_table(self, simulat_dat = None):
         """
         Generate the GATT table of the connected peripheral.
         Example:
@@ -224,7 +236,8 @@ class ble_bleuio_dongle():
         # 原始字符串
         logger.debug(f'ble-bleuio get all services...')
         if len(self._adapter.atds(True)) != 0:
-            s = ''.join(self._adapter.at_get_services() if rx_res is None else rx_res)
+            s = ''.join(self._adapter.at_get_services() if simulat_dat is None else simulat_dat)
+            time.sleep(0.1)
 
         # 使用正則表達式將字符串轉換為list
         lst = re.findall(r'\t(\d+)\s+([\w-]+)\s+(.*?)\s*$', s, re.M)
@@ -364,7 +377,7 @@ class ble_bleuio_dongle():
                 # Device name may include spaces.
                 name = dev_data.split("(")[1].split(")")[0] if len(data_items) > 6 else 'Unknown'
 
-                if data_items[2] not in rtn:
+                if data_items[2] not in rtn.keys():
                     rtn[data_items[2]] = {
                         'name': name, 
                         'address': data_items[2], 
