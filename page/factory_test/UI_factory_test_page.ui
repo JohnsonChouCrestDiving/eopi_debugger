@@ -25,6 +25,9 @@
   <property name="windowTitle">
    <string>factory test function</string>
   </property>
+  <property name="inputMethodHints">
+   <set>Qt::ImhDigitsOnly</set>
+  </property>
   <widget class="QWidget" name="verticalLayoutWidget">
    <property name="geometry">
     <rect>
@@ -34,9 +37,9 @@
      <height>741</height>
     </rect>
    </property>
-   <layout class="QVBoxLayout" name="verticalLayout" stretch="10,0,100,0">
+   <layout class="QVBoxLayout" name="VLayout_devManage" stretch="10,0,0,100,0">
     <item>
-     <layout class="QHBoxLayout" name="Layout_deviceManage" stretch="0,5">
+     <layout class="QHBoxLayout" name="HLayout_currDev" stretch="0,5">
       <property name="topMargin">
        <number>0</number>
       </property>
@@ -89,7 +92,23 @@
      </widget>
     </item>
     <item>
-     <widget class="QListWidget" name="listWidget_deviceList"/>
+     <widget class="QLabel" name="label_nearbyBtDev">
+      <property name="font">
+       <font>
+        <pointsize>10</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Nearby bluetooth device:</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QListWidget" name="listWidget_deviceList">
+      <property name="cursor" stdset="0">
+       <cursorShape>PointingHandCursor</cursorShape>
+      </property>
+     </widget>
     </item>
     <item>
      <widget class="QPushButton" name="Btn_scanDevice">
@@ -106,6 +125,109 @@
        <string>S C A N        D E V I C E</string>
       </property>
      </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QWidget" name="verticalLayoutWidget_2">
+   <property name="geometry">
+    <rect>
+     <x>790</x>
+     <y>10</y>
+     <width>661</width>
+     <height>741</height>
+    </rect>
+   </property>
+   <layout class="QVBoxLayout" name="VLayout_devTest" stretch="5,0,0,50">
+    <item>
+     <layout class="QHBoxLayout" name="HLayout_currDev_2" stretch="0,0">
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="label_deviceSN">
+        <property name="font">
+         <font>
+          <pointsize>12</pointsize>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
+        <property name="text">
+         <string>D E V I C E    S N:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="lineEdit_DevSN">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>46</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>46</height>
+         </size>
+        </property>
+        <property name="font">
+         <font>
+          <family>Cascadia Code SemiLight</family>
+          <pointsize>12</pointsize>
+         </font>
+        </property>
+        <property name="inputMethodHints">
+         <set>Qt::ImhDigitsOnly</set>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="dragEnabled">
+         <bool>true</bool>
+        </property>
+        <property name="placeholderText">
+         <string>Please enter serial number...</string>
+        </property>
+        <property name="clearButtonEnabled">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <widget class="QPushButton" name="Btn_devTest">
+      <property name="font">
+       <font>
+        <family>Neue Haas Grotesk Text Pro Blac</family>
+        <pointsize>20</pointsize>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="cursor">
+       <cursorShape>PointingHandCursor</cursorShape>
+      </property>
+      <property name="text">
+       <string>&lt;&lt;  C O M P R E H E N S I V E      T E S T  &gt;&gt;</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="label_testDevHistory">
+      <property name="font">
+       <font>
+        <pointsize>10</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Test devices history:</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QListWidget" name="listWidget_testFile"/>
     </item>
    </layout>
   </widget>

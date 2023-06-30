@@ -3,12 +3,15 @@ import sys
 import os
 import time
 from enum import Enum
+import csv
 sys.path.append(os.getcwd())
 
 #third party
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
+import openpyxl
+from openpyxl.styles import PatternFill
 
 #module
 from interface.interface_worker import  GenericWorker, do_in_thread
@@ -16,6 +19,7 @@ from interface.bluetooth.bluetooth import Bluetooth_LE, dongle
 from common.convert import Data_convertor as cov
 from common.UI_object import Right_click_menu_generator, TextBrowser_msg_handler
 from common.config import Config_creator
+import page.factory_test.CR1_bt as CR1
 # from log.logger import loggers
 import logging
 logger = logging.getLogger('factory_test')
@@ -30,6 +34,9 @@ cov = cov()
 worker = GenericWorker()
 do_in_thread = do_in_thread(worker)
 
+RSSI_LIMIT  = -60   # dBm, device will only display when the RSSI is higher than this value
+SCAN_TIME   =   5   # seconds
+
 class factory_test_func(QWidget, Ui_factory_test_func):
     def __init__(self):
         super(factory_test_func, self).__init__()
@@ -43,30 +50,39 @@ class factory_test_func(QWidget, Ui_factory_test_func):
         if self._ble.client == None:
             self._ble.select_interface(self.dongle_used)
         self._display_devices = []
-        self._scan_rssi_filter = -60
+        self._is_testing = False
+        self._is_connecting = False
+        self._dev = CR1 # current test device module
 
-        self.Btn_scanDevice.clicked.connect(self._scan_device)
-        self.Btn_connect.clicked.connect(self._handle_connect_Btn_event)
+        self.Btn_scanDevice.clicked.connect(self.handle_scan_Btn_event)
+        self.Btn_connect.clicked.connect(self.handle_connect_Btn_event)
+        self.Btn_devTest.clicked.connect(self.handle_test_Btn_event)
 
         if __name__ == '__main__':
             worker.UI.connect(self.set_UI)
 
     @do_in_thread
-    def scan_device(self):
-        self._display_devices = []
+    def handle_scan_Btn_event(self):
+        if self._is_testing:
+            # self._show_message_box('IN TESTING')
+            return
 
         self._disconnect_dev()
         self.Btn_scanDevice.setText("W A I T     7     S E C S")
-        self._ble.scan(timeout=5, scan_cb=self._store_scan_data)
-        self._sort_devices_by_rssi()
-        self._remove_devices_in_listWidget()
-        self._add_devices_in_listWidget()
+        self._ble.scan(timeout=SCAN_TIME, scan_cb=self._store_scan_data)
+        self._set_devices_list()
         self.Btn_scanDevice.setText("S C A N        D E V I C E")
 
+    def _set_devices_list(self):
+        self._remove_devices_in_listWidget()
+        self._sort_devices_by_rssi()
+        self._add_devices_in_listWidget()
+
     def _store_scan_data(self, msg: dict, a, b):
-        for key, value in msg.items():
+        self._display_devices = []
+        for value in msg.values():
             device_name, address, rssi, packet_data = self._get_inf_from_dongle_data(value)
-            if rssi > self._scan_rssi_filter:
+            if rssi > RSSI_LIMIT:
                 self._display_devices.append(
                     bt_dev_display_info(address, device_name, rssi, packet_data)
                 )
@@ -146,14 +162,15 @@ class factory_test_func(QWidget, Ui_factory_test_func):
         return rtn
     
     def _connect_device(self):
-        current_item = self.listWidget_deviceList.item(self.listWidget_deviceList.currentRow())
+        item_select = self.listWidget_deviceList.item(self.listWidget_deviceList.currentRow())
 
-        if current_item != None:
+        if item_select != None:
             # self._show_message_box('WAIT TO CONN')
-            MAC_addrs = current_item.text().split(' - ')[-1].split(']')[-1]
+            MAC_addrs = item_select.text().split(' - ')[-1].split(']')[-1]
             self._ble.connect(MAC_addrs)
             time.sleep(2)
-            if self._ble.is_connect():
+            self._is_connecting = self._ble.is_connect()
+            if self._is_connecting:
                 self.label_currDevAddr.setText(MAC_addrs)
                 self.label_currDevAddr.setAlignment(
                     Qt.AlignmentFlag.AlignJustify | Qt.AlignmentFlag.AlignVCenter
@@ -163,17 +180,98 @@ class factory_test_func(QWidget, Ui_factory_test_func):
     def _disconnect_dev(self):
         self._ble.disconnect()
         time.sleep(0.5)
-        if self._ble.is_connect() == False:
+        self._is_connecting = self._ble.is_connect()
+        if self._is_connecting == False:
             self.label_currDevAddr.setText('N/A')
             self.Btn_connect.setText("C O N N E C T  >>")
 
     @do_in_thread
     def handle_connect_Btn_event(self):
-        if self._ble.is_connect():
+        if self._is_testing:
+            # self._show_message_box('IN TESTING')
+            return
+        
+        if self._is_connecting:
             self._disconnect_dev()
         else:
             self._connect_device()
 
+    @do_in_thread
+    def handle_test_Btn_event(self):
+        if self._is_connecting == False:
+            # self._show_message_box('NO CONN')
+            return
+        elif self.lineEdit_DevSN.text() == '':
+            # self._show_message_box('NO SN')
+            return
+        else:
+            self._is_testing = True
+            self.lineEdit_DevSN.setReadOnly(self._is_testing) # Avoid changing the SN during the test to cause the wrong file name of the test result
+            self.Btn_devTest.setText('T E S T I N G ...')
+            self._file_name = self.lineEdit_DevSN.text()
+            btTest = self._dev.test()
+            self._subscribe_gatt()
+            if btTest.start(): # if test is finished
+                self._file_data = btTest.get_result_data()
+                self._generate_csv_file()
+                self._add_test_history()
+                self._is_testing = False
+                self.lineEdit_DevSN.setReadOnly(self._is_testing) # Unlock SN read-only restrictions
+                self.Btn_devTest.setText('F I N I S H    T E S T')
+                time.sleep(1.5)
+                self.Btn_devTest.setText("<<  C O M P R E H E N S I V E      T E S T  >>")
+
+    def _subscribe_gatt(self):
+        self._ble.subscribe(
+            self._dev.GATT_CONFIG['app_rx'][0], 
+            self._dev.GATT_CONFIG['app_rx'][1]
+        )
+        self._ble.subscribe(
+            self._dev.GATT_CONFIG['app_tx'][0],
+            self._dev.GATT_CONFIG['app_tx'][1]
+        )
+        self._ble.enable_all_notify()
+
+    def _generate_csv_file(self):
+        self._isAllPass = True
+        with open(self._file_name + '.csv', 'w') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Test case', 'Value/Error code', 'Note'])
+            for test_case, value in self._file_data.items():
+                writer.writerow([test_case, value[0], value[1]])
+                if value[1] != 'Pass':
+                    self._isAllPass = False
+    
+    def _generate_xslx_file(self):
+        self._isAllPass = True
+        wb = openpyxl.Workbook()
+        s1 = wb[self._file_name]
+        s1['A1'].value = 'Test case'
+        s1['A2'].value = 'Value/Error code'
+        s1['A3'].value = 'Note' 
+        row = 0
+        for test_case, value in self._file_data.items():
+            row += 2
+            s1.cell(row, 0).value = test_case
+            s1.cell(row, 1).value = value[0]
+            s1.cell(row, 2).value = value[1]
+            if value[1] != 'Pass':
+                self._isAllPass = False
+                for column in range(3):
+                    s1.cell(row, column).fill = PatternFill(
+                        fill_type='solid', fgColor='FF0000'
+                    )
+        wb.save(self._file_name + '.xlsx')
+
+    def _add_test_history(self):
+        font = QFont()
+        font.setFamily("Neue Haas Grotesk Text Pro Medi")
+        font.setPointSize(16)
+        new_item = QListWidgetItem()
+        new_item.setText(' ' if self._isAllPass else '*' + self._file_name + '.csv')
+        new_item.setFont(font)
+        new_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.listWidget_testFile.insertItem(0, new_item)
 
     def _show_message_box(self, info: str):
         # Execute this function will found error: QObject::setParent: Cannot set parent, new parent is in a different thread
@@ -188,6 +286,21 @@ class factory_test_func(QWidget, Ui_factory_test_func):
                 'NOTE:', 
                 'The "connect" button will change to "disconnect" when successfully connected.'
             ],
+            'NO SN': [
+                mbox_type.WARNING,
+                'WARNING: None SN',
+                'Please enter the serial number of the device, before test begin.'
+            ],
+            'IN TESTING': [
+                mbox_type.INFO,
+                'Test hasn\'t finish:',
+                'The device is being tested, please wait for the test to finish and try again'
+            ],
+            'NO CONN': [
+                mbox_type.WARNING,
+                'WARNING: None connection',
+                'Please connect the device before test begin.'
+            ]
         }
         mbox = QMessageBox()
 

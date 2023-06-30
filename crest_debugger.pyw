@@ -90,7 +90,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # self.ble.send([0x23])
 
 
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(2)
         self.setWindowTitle(self.guiwindowtitle)
         self.setWindowIcon(QIcon('cl_icon.ico'))
 
