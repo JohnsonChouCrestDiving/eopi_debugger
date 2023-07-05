@@ -146,24 +146,24 @@ class Bluetooth_LE(QThread):
     #     logger.debug('get_handle: {:02X}'.format(handle))
     #     return handle
 
-    @device_is_connect
+    # @device_is_connect
     def dicover_characteristics(self):
         pass
 
-    @device_is_connect
+    # @device_is_connect
     def enable_all_notify(self):
         for info in self.subscribe_list:
             self.subscribe(info['uuid'], info['indication'])
 
-    @device_is_connect
+    # @device_is_connect
     def subscribe(self, uuid, indication=True):
         self.client.subscribe(uuid, callback=self.handle_received_data, indication=indication)
     
-    @device_is_connect
+    # @device_is_connect
     def send_command(self, uuid, command:list, is_read:bool):
         self.client.send_command(uuid, command, is_read)
     
-    @device_is_connect
+    # @device_is_connect
     def handle_received_data(self, handle, value):
         logger.debug('receive_data - handle: 0x{:02X}, command: {}'.format(handle, ['{:02X}'.format(i) for i in value]))
         
@@ -196,7 +196,7 @@ class Bluetooth_LE(QThread):
     def get_single_data(self, timeout=5):
         return self.get_data(1, timeout=timeout)[0]['data']['value'][4:-1]
 
-    @device_is_connect
+    # @device_is_connect
     def disconnect(self):
         self.client.disconnect()
 

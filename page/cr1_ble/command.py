@@ -92,7 +92,8 @@ class cr1_ble_command(QWidget, Ui_CR1_ble_command):
         self.Btn_selectFile.clicked.connect(self.select_file)
         self.Btn_updataFw.clicked.connect(self.start_OTA_update)
 
-        self.selectPSensor_cb.currentIndexChanged.connect(self.change_current_pressure_sensor)
+        # self.selectPSensor_cb.currentIndexChanged.connect(self.change_current_pressure_sensor)
+        # TODO: 因為indexChanged會在初始化時觸發，會導致一開始就會執行set_pSensor_pressure，產生出一個不必要的thread，所以先註解掉
         self.selectPSensor_cb.addItems(['TEST_PRESSURE_SENSOR', 'MS5837_30BA', 'NONE_OF_THIS_SENSOR'])
         self.lineEdit_Pressure.setInputMask('9999')
         self.lineEdit_Temp.setInputMask('99')

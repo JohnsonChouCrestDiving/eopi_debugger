@@ -98,15 +98,14 @@ class GenericWorker(QThread):
 
 
     def run(self):
-        while self.func_pool:
-            # try:
-            if 1:
-                self.func_pool[0]()
-                print(self.func_pool[0])
-            # except:
-            #     pass
+        while 1:
             if self.func_pool:
-                self.func_pool.popleft()
+                self.func_pool[0]()
+                logger.debug(f'func_pool: {self.func_pool}')
+                if self.func_pool:
+                    self.func_pool.popleft()
+            else:
+                time.sleep(0.1)
 
     @pyqtSlot(dict)
     def deal_with_data(self, rx_data):
