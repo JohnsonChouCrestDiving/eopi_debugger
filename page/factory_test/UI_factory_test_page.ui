@@ -22,6 +22,11 @@
     <height>900</height>
    </size>
   </property>
+  <property name="font">
+   <font>
+    <pointsize>11</pointsize>
+   </font>
+  </property>
   <property name="windowTitle">
    <string>factory test function</string>
   </property>
@@ -31,8 +36,8 @@
   <widget class="QWidget" name="verticalLayoutWidget">
    <property name="geometry">
     <rect>
-     <x>10</x>
-     <y>10</y>
+     <x>40</x>
+     <y>70</y>
      <width>661</width>
      <height>741</height>
     </rect>
@@ -47,6 +52,7 @@
        <widget class="QLabel" name="label_currentDevice">
         <property name="font">
          <font>
+          <family>Neue Haas Grotesk Text Pro Medi</family>
           <pointsize>12</pointsize>
           <weight>75</weight>
           <bold>true</bold>
@@ -61,7 +67,7 @@
        <widget class="QLabel" name="label_currDevAddr">
         <property name="font">
          <font>
-          <family>MS UI Gothic</family>
+          <family>Neue Haas Grotesk Text Pro Medi</family>
           <pointsize>20</pointsize>
          </font>
         </property>
@@ -95,6 +101,7 @@
      <widget class="QLabel" name="label_nearbyBtDev">
       <property name="font">
        <font>
+        <family>Neue Haas Grotesk Text Pro Medi</family>
         <pointsize>10</pointsize>
        </font>
       </property>
@@ -131,13 +138,13 @@
   <widget class="QWidget" name="verticalLayoutWidget_2">
    <property name="geometry">
     <rect>
-     <x>790</x>
-     <y>10</y>
+     <x>780</x>
+     <y>200</y>
      <width>661</width>
-     <height>741</height>
+     <height>611</height>
     </rect>
    </property>
-   <layout class="QVBoxLayout" name="VLayout_devTest" stretch="5,0,0,50">
+   <layout class="QVBoxLayout" name="VLayout_devTest" stretch="6,0,0,50">
     <item>
      <layout class="QHBoxLayout" name="HLayout_currDev_2" stretch="0,0">
       <property name="topMargin">
@@ -147,6 +154,7 @@
        <widget class="QLabel" name="label_deviceSN">
         <property name="font">
          <font>
+          <family>Neue Haas Grotesk Text Pro Medi</family>
           <pointsize>12</pointsize>
           <weight>75</weight>
           <bold>true</bold>
@@ -218,6 +226,7 @@
      <widget class="QLabel" name="label_testDevHistory">
       <property name="font">
        <font>
+        <family>Neue Haas Grotesk Text Pro Medi</family>
         <pointsize>10</pointsize>
        </font>
       </property>
@@ -230,6 +239,128 @@
      <widget class="QListWidget" name="listWidget_testFile"/>
     </item>
    </layout>
+  </widget>
+  <widget class="QWidget" name="horizontalLayoutWidget_2">
+   <property name="geometry">
+    <rect>
+     <x>780</x>
+     <y>70</y>
+     <width>661</width>
+     <height>81</height>
+    </rect>
+   </property>
+   <layout class="QHBoxLayout" name="Layout_fwOtaUpdata">
+    <item>
+     <widget class="QPushButton" name="Btn_selectFile">
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>16</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>80</height>
+       </size>
+      </property>
+      <property name="font">
+       <font>
+        <family>Neue Haas Grotesk Text Pro Medi</family>
+        <pointsize>14</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>select file</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QTextEdit" name="textEdit_filePath"/>
+    </item>
+    <item>
+     <widget class="QPushButton" name="Btn_updataFw">
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>80</height>
+       </size>
+      </property>
+      <property name="font">
+       <font>
+        <family>Neue Haas Grotesk Text Pro Blac</family>
+        <pointsize>20</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>update FW</string>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>40</y>
+     <width>171</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Lucida Sans</family>
+     <pointsize>16</pointsize>
+     <italic>true</italic>
+     <strikeout>false</strikeout>
+    </font>
+   </property>
+   <property name="text">
+    <string>Device Manage:</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_2">
+   <property name="geometry">
+    <rect>
+     <x>760</x>
+     <y>170</y>
+     <width>131</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Lucida Sans</family>
+     <pointsize>16</pointsize>
+     <italic>true</italic>
+     <strikeout>false</strikeout>
+    </font>
+   </property>
+   <property name="text">
+    <string>Device Test:</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_3">
+   <property name="geometry">
+    <rect>
+     <x>760</x>
+     <y>40</y>
+     <width>211</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Lucida Sans</family>
+     <pointsize>16</pointsize>
+     <italic>true</italic>
+     <strikeout>false</strikeout>
+    </font>
+   </property>
+   <property name="text">
+    <string>Device F.W. Update:</string>
+   </property>
   </widget>
  </widget>
  <resources/>

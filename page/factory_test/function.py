@@ -57,6 +57,8 @@ class factory_test_func(QWidget, Ui_factory_test_func):
         self.Btn_scanDevice.clicked.connect(self.handle_scan_Btn_event)
         self.Btn_connect.clicked.connect(self.handle_connect_Btn_event)
         self.Btn_devTest.clicked.connect(self.handle_test_Btn_event)
+        self.Btn_selectFile.clicked.connect(self._select_file)
+        self.Btn_updataFw.clicked.connect(self.handle_updateFw_Btn_event)
 
         if __name__ == '__main__':
             worker.UI.connect(self.set_UI)
@@ -161,22 +163,28 @@ class factory_test_func(QWidget, Ui_factory_test_func):
             )
         return rtn
     
+    @do_in_thread
     def _connect_device(self):
         item_select = self.listWidget_deviceList.item(self.listWidget_deviceList.currentRow())
 
         if item_select != None:
-            # self._show_message_box('WAIT TO CONN')
+            self.Btn_connect.setText("C O N N E C T I N G  ...")
             MAC_addrs = item_select.text().split(' - ')[-1].split(']')[-1]
-            self._ble.connect(MAC_addrs)
-            time.sleep(2)
-            self._is_connecting = self._ble.is_connect()
+            if self.Btn_connect.text() == "C O N N E C T I N G  ...":
+                self._ble.connect(MAC_addrs)
+                time.sleep(2)
+                self._is_connecting = self._ble.is_connect()
             if self._is_connecting:
                 self.label_currDevAddr.setText(MAC_addrs)
                 self.label_currDevAddr.setAlignment(
                     Qt.AlignmentFlag.AlignJustify | Qt.AlignmentFlag.AlignVCenter
                 )
                 self.Btn_connect.setText("<<  D I S C O N N E C T")
+        else:
+            # self._show_message_box('NO SELECT DEV')
+            pass
 
+    @do_in_thread
     def _disconnect_dev(self):
         self._ble.disconnect()
         time.sleep(0.5)
@@ -210,7 +218,7 @@ class factory_test_func(QWidget, Ui_factory_test_func):
             self.Btn_devTest.setText('T E S T I N G ...')
             self._file_name = self.lineEdit_DevSN.text()
             btTest = self._dev.test()
-            self._subscribe_gatt()
+            self._subscribe_app_uuid()
             if btTest.start(): # if test is finished
                 self._file_data = btTest.get_result_data()
                 self._generate_csv_file()
@@ -221,7 +229,8 @@ class factory_test_func(QWidget, Ui_factory_test_func):
                 time.sleep(1.5)
                 self.Btn_devTest.setText("<<  C O M P R E H E N S I V E      T E S T  >>")
 
-    def _subscribe_gatt(self):
+    @do_in_thread
+    def _subscribe_app_uuid(self):
         self._ble.subscribe(
             self._dev.GATT_CONFIG['app_rx'][0], 
             self._dev.GATT_CONFIG['app_rx'][1]
@@ -273,6 +282,40 @@ class factory_test_func(QWidget, Ui_factory_test_func):
         new_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         self.listWidget_testFile.insertItem(0, new_item)
 
+    def _select_file(self):
+        filename, filetype = QFileDialog.getOpenFileName(self, "Open file", "./") # start path
+        logger.info('Select file: ' + filename + '.' + filetype)
+        self.textEdit_filePath.setText(filename)
+
+    @do_in_thread
+    def handle_updateFw_Btn_event(self):
+        if self._is_connecting == False:
+            # self._show_message_box('NO CONN')
+            return
+        self.Btn_updataFw.setText('U P D A T I N G ...')
+        self._subscribe_ota_uuid()
+        if self.Btn_updataFw.text() == 'U P D A T I N G ...':
+            ota_update = self._dev.fw_update(self.textEdit_filePath.toPlainText())
+            error_code =  ota_update.start()
+        if error_code:
+            # self._show_message_box(str(error_code))
+            self._disconnect_dev()
+            self.Btn_updataFw.setText('Finish Update')
+            time.sleep(1.5)
+            self.Btn_updataFw.setText('Update FW')
+    
+    @do_in_thread
+    def _subscribe_ota_uuid(self):
+        self._ble.subscribe(
+            self._dev.GATT_CONFIG['ota_rx'][0], 
+            self._dev.GATT_CONFIG['ota_rx'][1]
+        )
+        self._ble.subscribe(
+            self._dev.GATT_CONFIG['ota_tx'][0],
+            self._dev.GATT_CONFIG['ota_tx'][1]
+        )
+        self._ble.enable_all_notify()
+    
     def _show_message_box(self, info: str):
         # Execute this function will found error: QObject::setParent: Cannot set parent, new parent is in a different thread
         class mbox_type(Enum):
@@ -281,10 +324,10 @@ class factory_test_func(QWidget, Ui_factory_test_func):
             WARNING = 2
             CRITICAL = 3
         mbox_disp_inf = {
-            'WAIT TO CONN': [
-                mbox_type.INFO,
-                'NOTE:', 
-                'The "connect" button will change to "disconnect" when successfully connected.'
+            'NO SELECT DEV': [
+                mbox_type.WARNING,
+                'WARNING:', 
+                'Please select a device, before connect.'
             ],
             'NO SN': [
                 mbox_type.WARNING,
@@ -299,8 +342,33 @@ class factory_test_func(QWidget, Ui_factory_test_func):
             'NO CONN': [
                 mbox_type.WARNING,
                 'WARNING: None connection',
-                'Please connect the device before test begin.'
-            ]
+                'Please connect the device, and try again.'
+            ],
+            'FW UPDATE SUCC': [
+                mbox_type.INFO,
+                'FW update:',
+                'FW update successfully.'
+            ],
+            'OPEN FILE ERR': [
+                mbox_type.CRITICAL,
+                'ERROR: Open file',
+                'Open file failed.'
+            ],
+            'FW HEADER ERR': [
+                mbox_type.CRITICAL,
+                'Send FW failed',
+                'Check firmware update file is effective.'
+            ],
+            'FW DATA ERR': [
+                mbox_type.CRITICAL,
+                'Send FW failed',
+                'Incomplete file, check firmware update file is effective.'
+            ],
+            'VERIFY FW ERR': [
+                mbox_type.CRITICAL,
+                'Verify FW failed',
+                'firmware file has been sent, but the verifiy failed, please send the update file again'
+            ],
         }
         mbox = QMessageBox()
 
