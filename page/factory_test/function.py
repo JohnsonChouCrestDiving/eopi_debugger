@@ -4,6 +4,8 @@ import os
 import time
 from enum import Enum
 import csv
+import serial
+import re
 sys.path.append(os.getcwd())
 
 #third party
@@ -50,6 +52,7 @@ class factory_test_func(QWidget, Ui_factory_test_func):
         if self._ble.client == None:
             self._ble.select_interface(self.dongle_used)
         self._display_devices = []
+        self.barometer = None
         self._is_testing = False
         self._is_connecting = False
         self._dev = CR1 # current test device module
@@ -59,6 +62,8 @@ class factory_test_func(QWidget, Ui_factory_test_func):
         self.Btn_devTest.clicked.connect(self.handle_test_Btn_event)
         self.Btn_selectFile.clicked.connect(self._select_file)
         self.Btn_updataFw.clicked.connect(self.handle_updateFw_Btn_event)
+        self.Btn_COMportOk.clicked.connect(self.handle_COM_ok_Btn_event)
+        self.Btn_Calibrate.clicked.connect(self.handle_calPSensor_Btn_event)
 
         if __name__ == '__main__':
             worker.UI.connect(self.set_UI)
@@ -66,7 +71,7 @@ class factory_test_func(QWidget, Ui_factory_test_func):
     @do_in_thread
     def handle_scan_Btn_event(self):
         if self._is_testing:
-            # self._show_message_box('IN TESTING')
+            worker.UI.emit(lambda: self._show_message_box('IN TESTING'))
             return
 
         self._disconnect_dev()
@@ -146,7 +151,7 @@ class factory_test_func(QWidget, Ui_factory_test_func):
     
     def set_UI(self, function):
         function()
-        self.logger.debug(function)
+        logger.debug(function)
 
     def _get_inf_from_dongle_data(self, value):
         """
@@ -181,7 +186,7 @@ class factory_test_func(QWidget, Ui_factory_test_func):
                 )
                 self.Btn_connect.setText("<<  D I S C O N N E C T")
         else:
-            # self._show_message_box('NO SELECT DEV')
+            worker.UI.emit(lambda: self._show_message_box('NO SELECT DEV'))
             pass
 
     @do_in_thread
@@ -196,7 +201,7 @@ class factory_test_func(QWidget, Ui_factory_test_func):
     @do_in_thread
     def handle_connect_Btn_event(self):
         if self._is_testing:
-            # self._show_message_box('IN TESTING')
+            worker.UI.emit(lambda: self._show_message_box('IN TESTING'))
             return
         
         if self._is_connecting:
@@ -207,20 +212,24 @@ class factory_test_func(QWidget, Ui_factory_test_func):
     @do_in_thread
     def handle_test_Btn_event(self):
         if self._is_connecting == False:
-            # self._show_message_box('NO CONN')
+            worker.UI.emit(lambda: self._show_message_box('NO CONN'))
             return
         elif self.lineEdit_DevSN.text() == '':
-            # self._show_message_box('NO SN')
+            worker.UI.emit(lambda: self._show_message_box('NO SN'))
             return
         else:
             self._is_testing = True
             self.lineEdit_DevSN.setReadOnly(self._is_testing) # Avoid changing the SN during the test to cause the wrong file name of the test result
             self.Btn_devTest.setText('T E S T I N G ...')
+            while self.lineEdit_DevSN.text() == None: # Wait for the SN can be read
+                continue
             self._file_name = self.lineEdit_DevSN.text()
-            btTest = self._dev.test()
             self._subscribe_app_uuid()
-            if btTest.start(): # if test is finished
-                self._file_data = btTest.get_result_data()
+            objTemp = self._dev.device()
+            objTemp.set_sn(self._file_name)
+            objTemp = self._dev.test()
+            if objTemp.start(): # if test is finished
+                self._file_data = objTemp.get_result_data()
                 self._generate_csv_file()
                 self._add_test_history()
                 self._is_testing = False
@@ -243,7 +252,8 @@ class factory_test_func(QWidget, Ui_factory_test_func):
 
     def _generate_csv_file(self):
         self._isAllPass = True
-        with open(self._file_name + '.csv', 'w') as csvfile:
+        folder = r'.\page\factory_test\test_report\\'
+        with open(folder + self._file_name + '.csv', 'w') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['Test case', 'Value/Error code', 'Note'])
             for test_case, value in self._file_data.items():
@@ -286,11 +296,13 @@ class factory_test_func(QWidget, Ui_factory_test_func):
         filename, filetype = QFileDialog.getOpenFileName(self, "Open file", "./") # start path
         logger.info('Select file: ' + filename + '.' + filetype)
         self.textEdit_filePath.setText(filename)
+        self.textEdit_filePath.setFontFamily("Neue Haas Grotesk Text Pro Medi")
+        self.textEdit_filePath.setFontPointSize(16)
 
     @do_in_thread
     def handle_updateFw_Btn_event(self):
         if self._is_connecting == False:
-            # self._show_message_box('NO CONN')
+            worker.UI.emit(lambda: self._show_message_box('NO CONN'))
             return
         self.Btn_updataFw.setText('U P D A T I N G ...')
         self._subscribe_ota_uuid()
@@ -298,7 +310,7 @@ class factory_test_func(QWidget, Ui_factory_test_func):
             ota_update = self._dev.fw_update(self.textEdit_filePath.toPlainText())
             error_code =  ota_update.start()
         if error_code:
-            # self._show_message_box(str(error_code))
+            worker.UI.emit(lambda: self._show_message_box(str(error_code)))
             self._disconnect_dev()
             self.Btn_updataFw.setText('Finish Update')
             time.sleep(1.5)
@@ -315,9 +327,59 @@ class factory_test_func(QWidget, Ui_factory_test_func):
             self._dev.GATT_CONFIG['ota_tx'][1]
         )
         self._ble.enable_all_notify()
+
+    @do_in_thread
+    def handle_COM_ok_Btn_event(self):
+        port_num = self.lineEdit_COMport.text()
+        if port_num == '':
+            return
+        comport = 'COM' + port_num
+        try:
+            self.barometer = serial.Serial(comport)
+        except IOError:
+            logger.error('Cannot open ' + comport)
+            worker.UI.emit(lambda: self._show_message_box('COM PORT ERR'))
+            return
+        worker.UI.emit(lambda: self._show_message_box('COM PORT OK'))
+
+    @do_in_thread
+    def handle_calPSensor_Btn_event(self):
+        if self.barometer == None:
+            return
+        if not self._is_connecting:
+            worker.UI.emit(lambda: self._show_message_box('NO CONN'))
+            return
+        self.Btn_Calibrate.setText('C A L I B R A T I N G ...')
+        
+        # sync data frame
+        pinst_read = self.barometer.read(1) # read start word
+        while(list(pinst_read)[0] != 2):
+            pinst_read = self.barometer.read(1) # find start word
+        pinst_read = self.barometer.read(15) # discard this data
+
+        # find pressure and temperature data
+        if self.Btn_Calibrate.text() == 'C A L I B R A T I N G ...':
+            atm_valid = False
+            while self.barometer.in_waiting >= 16 or atm_valid == False:
+                pinst_read = self.barometer.read(1) # read start word
+                pinst_read = self.barometer.read(14) # pinst datasize = 14
+                logger.debug('pinst_read: ' + pinst_read.decode('utf8'))
+                if re.findall('420101', pinst_read.decode('utf8')) != []:
+                    temperature = float(re.findall('420101(\d+)', pinst_read.decode('utf8'))[0])/10
+                    logger.debug(f'Instrument Temperature: {temperature}')
+                if re.findall('439101', pinst_read.decode('utf8')) != []:
+                    atm_pressure = float(re.findall('439101(\d+)', pinst_read.decode('utf8'))[0])/10
+                    logger.debug(f'Instrument Pressure: {atm_pressure}')
+                    atm_valid = True
+                pinst_read = self.barometer.read(1) # read end word
+
+        # send pressure data to device
+        objTemp = self._dev.device()
+        objTemp.calibrate_pSensor(atm_pressure)
+
+        self.Btn_Calibrate.setText(' C a l i b r a t e  >>')
     
     def _show_message_box(self, info: str):
-        # Execute this function will found error: QObject::setParent: Cannot set parent, new parent is in a different thread
         class mbox_type(Enum):
             INFO = 0
             QUESTION = 1
@@ -368,6 +430,16 @@ class factory_test_func(QWidget, Ui_factory_test_func):
                 mbox_type.CRITICAL,
                 'Verify FW failed',
                 'firmware file has been sent, but the verifiy failed, please send the update file again'
+            ],
+            'COM PORT ERR': [
+                mbox_type.CRITICAL,
+                'COM PORT ERR',
+                'Cannot open COM port, please check the COM port is correct.'
+            ],
+            'COM PORT OK': [
+                mbox_type.INFO,
+                'COM PORT OK',
+                'COM port has been opened successly.'
             ],
         }
         mbox = QMessageBox()

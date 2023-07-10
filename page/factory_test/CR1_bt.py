@@ -27,13 +27,15 @@ GATT_CONFIG = {
 
 ACTION = {
     # DEVICE
-    'WHERE_MY_WATCH'    :{'cmd': [0xA0, 0x00, 0x00, 0x00, 0xFF], 'read_num': 1},
+    'WHERE_MY_WATCH'    :{'cmd': [0xA0, 0x00, 0x00, 0x00, 0xFF],    'read_num': 1},
     # EOPI TEST
-    'GET_TEMPERATURE'   :{'cmd': [0xD0, 0x03, 0x01, 0x17],       'read_num': 1},
-    'GET_PRESSURE'      :{'cmd': [0xD0, 0x04, 0x01, 0x7C],       'read_num': 1},
-    'GET_BATTERY_VOLT'  :{'cmd': [0xD0, 0x0A, 0x01, 0xAA],       'read_num': 1},
-    'TEST_RTC_IC'       :{'cmd': [0xD0, 0x0B, 0x01, 0xBF],       'read_num': 1},
-    'TEST_FLASH_IC'     :{'cmd': [0xD0, 0x0F, 0x01, 0xEB],       'read_num': 1},
+    'GET_TEMPERATURE'   :{'cmd': [0xD0, 0x03, 0x01, 0x17],          'read_num': 1},
+    'GET_PRESSURE'      :{'cmd': [0xD0, 0x04, 0x01, 0x7C],          'read_num': 1},
+    'GET_BATTERY_VOLT'  :{'cmd': [0xD0, 0x0A, 0x01, 0xAA],          'read_num': 1},
+    'TEST_RTC_IC'       :{'cmd': [0xD0, 0x0B, 0x01, 0xBF],          'read_num': 1},
+    'TEST_FLASH_IC'     :{'cmd': [0xD0, 0x0F, 0x01, 0xEB],          'read_num': 1},
+    'SET_SN'            :{'cmd': [0xD0, 0x10, 0x00],                'read_num': 0},
+    'CAL_PRESSURE'      :{'cmd': [0xD0, 0x11, 0x00],                'read_num': 0},
 }
 
 class eAmotaCommand(Enum):
@@ -72,6 +74,7 @@ class test():
 
     @do_in_thread
     def start(self):
+        self._verify_battery_volt()
         self._test_rtc_ic()
         self._test_flash_ic()
         self._verify_temperature()
@@ -93,6 +96,7 @@ class test():
     
     @do_in_thread
     def _gen_data(self):
+        self._test_data['battery_voltage'] = (self._battery_volt, '')
         self._test_data['rtc'] = (
             self._rtc_rslt, 
             'Pass' if self._rtc_rslt == 0 else rtcErrCode(self._rtc_rslt).name
@@ -111,42 +115,73 @@ class test():
         )
 
     @do_in_thread
+    def _verify_battery_volt(self):
+        try:
+            res = self._ble.read(
+                GATT_CONFIG['app_rx'][0],
+                ACTION['GET_BATTERY_VOLT']['cmd'],
+                ACTION['GET_BATTERY_VOLT']['read_num']
+            )
+            self._battery_volt = cov.uint16_to_int(res[0]['data']['value'][3:5]) # mV
+        except Exception as e:
+            logger.error(f'get battery volt fail: {e}')
+            self._battery_volt = 0
+
+    @do_in_thread
     def _test_rtc_ic(self):
-        res = self._ble.read(
-            GATT_CONFIG['app_rx'][0],
-            ACTION['TEST_RTC_IC']['cmd'],
-            ACTION['TEST_RTC_IC']['read_num']
-        )
-        self._rtc_rslt = res[0]['data']['value'][3]
+        try:
+            res = self._ble.read(
+                GATT_CONFIG['app_rx'][0],
+                ACTION['TEST_RTC_IC']['cmd'],
+                ACTION['TEST_RTC_IC']['read_num']
+            )
+            self._rtc_rslt = res[0]['data']['value'][3]
+        except Exception as e:
+            logger.error(f'test rtc fail: {e}')
+            self._rtc_rslt = 1
 
     @do_in_thread
     def _test_flash_ic(self):
-        res = self._ble.read(
-            GATT_CONFIG['app_rx'][0],
-            ACTION['TEST_FLASH_IC']['cmd'],
-            ACTION['TEST_FLASH_IC']['read_num']
-        )
-        self._flash_rslt = res[0]['data']['value'][3]
+        try:
+            res = self._ble.read(
+                GATT_CONFIG['app_rx'][0],
+                ACTION['TEST_FLASH_IC']['cmd'],
+                ACTION['TEST_FLASH_IC']['read_num']
+            )
+            self._flash_rslt = res[0]['data']['value'][3]
+        except Exception as e:
+            logger.error(f'test flash fail: {e}')
+            self._flash_rslt = 1
 
     @do_in_thread
     def _verify_pressure(self):
-        res = self._ble.read(
-            GATT_CONFIG['app_rx'][0],
-            ACTION['GET_PRESSURE']['cmd'],
-            ACTION['GET_PRESSURE']['read_num']
-        )
-        self._pressure = cov.uint16_to_int(res[0]['data']['value'][3:5])
-        self._isPInRange = 900 < self._pressure and self._pressure < 1100
+        try:
+            res = self._ble.read(
+                GATT_CONFIG['app_rx'][0],
+                ACTION['GET_PRESSURE']['cmd'],
+                ACTION['GET_PRESSURE']['read_num']
+            )
+            self._pressure = cov.uint16_to_int(res[0]['data']['value'][3:5])
+            self._isPInRange = 900 < self._pressure and self._pressure < 1100
+        except Exception as e:
+            logger.error(f'verify pressure fail: {e}')
+            self._pressure = 0
+            self._isPInRange = False
 
     @do_in_thread
     def _verify_temperature(self):
-        res = self._ble.read(
-            GATT_CONFIG['app_rx'][0],
-            ACTION['GET_TEMPERATURE']['cmd'],
-            ACTION['GET_TEMPERATURE']['read_num']
-        )
-        self._temperature = cov.uint16_to_int(res[0]['data']['value'][3:5])
-        self._isTInRange = 10 < self._temperature and self._temperature < 30
+        try:
+            res = self._ble.read(
+                GATT_CONFIG['app_rx'][0],
+                ACTION['GET_TEMPERATURE']['cmd'],
+                ACTION['GET_TEMPERATURE']['read_num']
+            )
+            self._temperature = cov.uint16_to_int(res[0]['data']['value'][3:5])
+            self._isTInRange = 10 < self._temperature and self._temperature < 30
+        except Exception as e:
+            logger.error(f'verify temperature fail: {e}')
+            self._temperature = 0
+            self._isTInRange = False
 
 class fw_update():
     def __init__(self, fw_file_path: str, debug: bool = False):
@@ -344,3 +379,22 @@ class fw_update():
         else:
             self._data_buf.clear()
             self._data_buf.extend(self._data_will_be_send[start_seek:])
+
+class device():
+    def __init__(self):
+        self._ble = worker.ble
+    
+    @do_in_thread
+    def set_sn(self, sn: str):
+        pkt_no_checksum = ACTION['SET_SN']['cmd'] + cov.swap_endian((cov.ASCII_to_u8_list(sn)))
+        pkt_no_checksum.append(self._ble.get_checksum(pkt_no_checksum))
+        pkt = pkt_no_checksum
+        self._ble.write(GATT_CONFIG['app_rx'][0], pkt)
+    
+    @do_in_thread
+    def calibrate_pSensor(self, pressure: float):
+        pkt_no_checksum = ACTION['CAL_PRESSURE']['cmd'] + cov.swap_endian((cov.float_to_intList(pressure)))
+        pkt_no_checksum.append(self._ble.get_checksum(pkt_no_checksum))
+        pkt = pkt_no_checksum
+        logger.debug('calibrate_pSensor: %s', pkt)
+        self._ble.write(GATT_CONFIG['app_rx'][0], pkt)
