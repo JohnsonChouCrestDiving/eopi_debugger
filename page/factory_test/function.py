@@ -6,6 +6,7 @@ from enum import Enum
 import csv
 import serial
 import re
+from datetime import datetime
 sys.path.append(os.getcwd())
 
 #third party
@@ -55,6 +56,7 @@ class factory_test_func(QWidget, Ui_factory_test_func):
         self.barometer = None
         self._is_testing = False
         self._is_connecting = False
+        self._gui_mes_sn = 0
         self._dev = CR1 # current test device module
 
         self.Btn_scanDevice.clicked.connect(self.handle_scan_Btn_event)
@@ -71,7 +73,7 @@ class factory_test_func(QWidget, Ui_factory_test_func):
     @do_in_thread
     def handle_scan_Btn_event(self):
         if self._is_testing:
-            worker.UI.emit(lambda: self._show_message_box('IN TESTING'))
+            self._show_GUI_message('IN TESTING')
             return
 
         self._disconnect_dev()
@@ -186,7 +188,7 @@ class factory_test_func(QWidget, Ui_factory_test_func):
                 )
                 self.Btn_connect.setText("<<  D I S C O N N E C T")
         else:
-            worker.UI.emit(lambda: self._show_message_box('NO SELECT DEV'))
+            self._show_GUI_message('NO SELECT DEV')
             pass
 
     @do_in_thread
@@ -201,7 +203,7 @@ class factory_test_func(QWidget, Ui_factory_test_func):
     @do_in_thread
     def handle_connect_Btn_event(self):
         if self._is_testing:
-            worker.UI.emit(lambda: self._show_message_box('IN TESTING'))
+            self._show_GUI_message('IN TESTING')
             return
         
         if self._is_connecting:
@@ -212,10 +214,10 @@ class factory_test_func(QWidget, Ui_factory_test_func):
     @do_in_thread
     def handle_test_Btn_event(self):
         if self._is_connecting == False:
-            worker.UI.emit(lambda: self._show_message_box('NO CONN'))
+            self._show_GUI_message('NO CONN')
             return
         elif self.lineEdit_DevSN.text() == '':
-            worker.UI.emit(lambda: self._show_message_box('NO SN'))
+            self._show_GUI_message('NO SN')
             return
         else:
             self._is_testing = True
@@ -302,7 +304,7 @@ class factory_test_func(QWidget, Ui_factory_test_func):
     @do_in_thread
     def handle_updateFw_Btn_event(self):
         if self._is_connecting == False:
-            worker.UI.emit(lambda: self._show_message_box('NO CONN'))
+            self._show_GUI_message('NO CONN')
             return
         self.Btn_updataFw.setText('U P D A T I N G ...')
         self._subscribe_ota_uuid()
@@ -310,7 +312,7 @@ class factory_test_func(QWidget, Ui_factory_test_func):
             ota_update = self._dev.fw_update(self.textEdit_filePath.toPlainText())
             error_code =  ota_update.start()
         if error_code:
-            worker.UI.emit(lambda: self._show_message_box(str(error_code)))
+            self._show_GUI_message(str(error_code))
             self._disconnect_dev()
             self.Btn_updataFw.setText('Finish Update')
             time.sleep(1.5)
@@ -338,16 +340,16 @@ class factory_test_func(QWidget, Ui_factory_test_func):
             self.barometer = serial.Serial(comport)
         except IOError:
             logger.error('Cannot open ' + comport)
-            worker.UI.emit(lambda: self._show_message_box('COM PORT ERR'))
+            self._show_GUI_message('COM PORT ERR')
             return
-        worker.UI.emit(lambda: self._show_message_box('COM PORT OK'))
+        self._show_GUI_message('COM PORT OK')
 
     @do_in_thread
     def handle_calPSensor_Btn_event(self):
         if self.barometer == None:
             return
         if not self._is_connecting:
-            worker.UI.emit(lambda: self._show_message_box('NO CONN'))
+            self._show_GUI_message('NO CONN')
             return
         self.Btn_Calibrate.setText('C A L I B R A T I N G ...')
         
@@ -379,95 +381,25 @@ class factory_test_func(QWidget, Ui_factory_test_func):
 
         self.Btn_Calibrate.setText(' C a l i b r a t e  >>')
     
-    def _show_message_box(self, info: str):
-        class mbox_type(Enum):
-            INFO = 0
-            QUESTION = 1
-            WARNING = 2
-            CRITICAL = 3
+    def _show_GUI_message(self, info: str):
+        self._gui_mes_sn += 1
         mbox_disp_inf = {
-            'NO SELECT DEV': [
-                mbox_type.WARNING,
-                'WARNING:', 
-                'Please select a device, before connect.'
-            ],
-            'NO SN': [
-                mbox_type.WARNING,
-                'WARNING: None SN',
-                'Please enter the serial number of the device, before test begin.'
-            ],
-            'IN TESTING': [
-                mbox_type.INFO,
-                'Test hasn\'t finish:',
-                'The device is being tested, please wait for the test to finish and try again'
-            ],
-            'NO CONN': [
-                mbox_type.WARNING,
-                'WARNING: None connection',
-                'Please connect the device, and try again.'
-            ],
-            'FW UPDATE SUCC': [
-                mbox_type.INFO,
-                'FW update:',
-                'FW update successfully.'
-            ],
-            'OPEN FILE ERR': [
-                mbox_type.CRITICAL,
-                'ERROR: Open file',
-                'Open file failed.'
-            ],
-            'FW HEADER ERR': [
-                mbox_type.CRITICAL,
-                'Send FW failed',
-                'Check firmware update file is effective.'
-            ],
-            'FW DATA ERR': [
-                mbox_type.CRITICAL,
-                'Send FW failed',
-                'Incomplete file, check firmware update file is effective.'
-            ],
-            'VERIFY FW ERR': [
-                mbox_type.CRITICAL,
-                'Verify FW failed',
-                'firmware file has been sent, but the verifiy failed, please send the update file again'
-            ],
-            'COM PORT ERR': [
-                mbox_type.CRITICAL,
-                'COM PORT ERR',
-                'Cannot open COM port, please check the COM port is correct.'
-            ],
-            'COM PORT OK': [
-                mbox_type.INFO,
-                'COM PORT OK',
-                'COM port has been opened successly.'
-            ],
+            'NO SELECT DEV': 'Please select a device, before connect.',
+            'NO SN': 'Please enter the serial number of the device, before test begin.',
+            'IN TESTING': 'The device is being tested, please wait for the test to finish and try again',
+            'NO CONN': 'Please connect the device, and try again.',
+            'FW UPDATE SUCC': 'FW update successfully.',
+            'OPEN FILE ERR': 'Open file failed.',
+            'FW HEADER ERR': 'Check firmware update file is effective.',
+            'FW DATA ERR': 'Incomplete file, check firmware update file is effective.',
+            'VERIFY FW ERR': 'firmware file has been sent, but the verifiy failed, please send the update file again',
+            'COM PORT ERR': 'Cannot open COM port, please check the COM port is correct.',
+            'COM PORT OK': 'COM port has been opened successly.',
         }
-        mbox = QMessageBox()
-
-        if mbox_disp_inf[info][0] == mbox_type.INFO:
-            mbox.information(
-                self, 
-                mbox_disp_inf[info][1], 
-                mbox_disp_inf[info][2]
-            )
-        elif mbox_disp_inf[info][0] == mbox_type.QUESTION:
-            mbox.question(
-                self, 
-                mbox_disp_inf[info][1], 
-                mbox_disp_inf[info][2]
-            )
-        elif mbox_disp_inf[info][0] == mbox_type.WARNING:
-            mbox.warning(
-                self, 
-                mbox_disp_inf[info][1], 
-                mbox_disp_inf[info][2]
-            )
-        elif mbox_disp_inf[info][0] == mbox_type.CRITICAL:
-            mbox.critical(
-                self, 
-                mbox_disp_inf[info][1], 
-                mbox_disp_inf[info][2]
-            )
+        now = datetime.now()
+        time = now.strftime("%Y-%m-%d %H:%M:%S")
+        message = f'[{self._gui_mes_sn}]{time:<25}{info:<20}- {mbox_disp_inf[info]}'
+        worker.UI.emit(lambda: self.textBrowser_guiMessage.append(message))
 
 class bt_dev_display_info(object):
     def __init__(self, ble_addr: str, device_name: str, rssi: int, packet_data):
