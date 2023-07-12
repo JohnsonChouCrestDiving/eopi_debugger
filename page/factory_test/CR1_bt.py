@@ -6,6 +6,7 @@ Ex. gatt config, cmd, etc.
 from enum import Enum
 from interface.interface_worker import  GenericWorker, do_in_thread
 from common.convert import Data_convertor as cov
+from page.factory_test.err_cls import *
 import logging
 import time
 import os
@@ -28,14 +29,17 @@ GATT_CONFIG = {
 ACTION = {
     # DEVICE
     'WHERE_MY_WATCH'    :{'cmd': [0xA0, 0x00, 0x00, 0x00, 0xFF],    'read_num': 1},
+    'GET_FW_VER'        :{'cmd': [0xA0, 0x01, 0x01, 0x5A],          'read_num': 1},
+    'CHECK_ALIVE'       :{'cmd': [0xA0, 0x04, 0x01, 0x1B],          'read_num': 1},
     # EOPI TEST
     'GET_TEMPERATURE'   :{'cmd': [0xD0, 0x03, 0x01, 0x17],          'read_num': 1},
     'GET_PRESSURE'      :{'cmd': [0xD0, 0x04, 0x01, 0x7C],          'read_num': 1},
     'GET_BATTERY_VOLT'  :{'cmd': [0xD0, 0x0A, 0x01, 0xAA],          'read_num': 1},
     'TEST_RTC_IC'       :{'cmd': [0xD0, 0x0B, 0x01, 0xBF],          'read_num': 1},
+    'GET_BUILD_TIME'    :{'cmd': [0xD0, 0x0D, 0x01, 0xC1],          'read_num': 1},
     'TEST_FLASH_IC'     :{'cmd': [0xD0, 0x0F, 0x01, 0xEB],          'read_num': 1},
     'SET_SN'            :{'cmd': [0xD0, 0x10, 0x00],                'read_num': 0},
-    'CAL_PRESSURE'      :{'cmd': [0xD0, 0x11, 0x00],                'read_num': 0},
+    'CAL_PRESSURE'      :{'cmd': [0xD0, 0x11, 0x01],                'read_num': 1},
 }
 
 class eAmotaCommand(Enum):
@@ -63,9 +67,11 @@ class rtcErrCode(Enum):
     ERR_ID              = 2
 
 class flashErrCode(Enum):
-    NO_ERR              = 0
-    ERR_COMMUNICATION   = 1
-    ERR_ID              = 2
+    FLASH_NO_ERR            = 0
+    FLASH_ERR_COMMUNICATION = 1
+    FLASH_ERR_WRITE         = 2
+    FLASH_ERR_READ          = 3
+    FLASH_ERR_ID            = 4
 
 class test():
     def __init__(self):
@@ -86,6 +92,7 @@ class test():
     def get_result_data(self):
         """
         {
+            'battery_voltage': (int, 'err_msg'),
             'rtc': (0 ~ 2, 'err_msg'),
             'flash': (0 ~ 2, 'err_msg'),
             'temperature': (uint8, 'err_msg'),
@@ -96,7 +103,10 @@ class test():
     
     @do_in_thread
     def _gen_data(self):
-        self._test_data['battery_voltage'] = (self._battery_volt, '')
+        self._test_data['battery_voltage'] = (
+            self._battery_volt, 
+            'Pass' if self._isVInRange else 'Out of range'
+            )
         self._test_data['rtc'] = (
             self._rtc_rslt, 
             'Pass' if self._rtc_rslt == 0 else rtcErrCode(self._rtc_rslt).name
@@ -116,76 +126,66 @@ class test():
 
     @do_in_thread
     def _verify_battery_volt(self):
-        try:
-            res = self._ble.read(
-                GATT_CONFIG['app_rx'][0],
-                ACTION['GET_BATTERY_VOLT']['cmd'],
-                ACTION['GET_BATTERY_VOLT']['read_num']
-            )
-            self._battery_volt = cov.uint16_to_int(res[0]['data']['value'][3:5]) # mV
-        except Exception as e:
-            logger.error(f'get battery volt fail: {e}')
-            self._battery_volt = 0
+        res = self._ble.read(
+            GATT_CONFIG['app_rx'][0],
+            ACTION['GET_BATTERY_VOLT']['cmd'],
+            ACTION['GET_BATTERY_VOLT']['read_num']
+        )
+        if len(res) == 0:
+            raise serverNoResponse('TEST1 FAIL')
+        self._battery_volt = cov.uint16_to_int(cov.swap_endian(res[0]['data']['value'][3:5])) # mV
+        self._isVInRange = 2400 < self._battery_volt and self._battery_volt < 3300
 
     @do_in_thread
     def _test_rtc_ic(self):
-        try:
-            res = self._ble.read(
-                GATT_CONFIG['app_rx'][0],
-                ACTION['TEST_RTC_IC']['cmd'],
-                ACTION['TEST_RTC_IC']['read_num']
-            )
-            self._rtc_rslt = res[0]['data']['value'][3]
-        except Exception as e:
-            logger.error(f'test rtc fail: {e}')
-            self._rtc_rslt = 1
+        res = self._ble.read(
+            GATT_CONFIG['app_rx'][0],
+            ACTION['TEST_RTC_IC']['cmd'],
+            ACTION['TEST_RTC_IC']['read_num']
+        )
+        if len(res) == 0:
+            raise serverNoResponse('TEST2 FAIL')
+        self._rtc_rslt = res[0]['data']['value'][3]
 
     @do_in_thread
     def _test_flash_ic(self):
-        try:
-            res = self._ble.read(
-                GATT_CONFIG['app_rx'][0],
-                ACTION['TEST_FLASH_IC']['cmd'],
-                ACTION['TEST_FLASH_IC']['read_num']
-            )
-            self._flash_rslt = res[0]['data']['value'][3]
-        except Exception as e:
-            logger.error(f'test flash fail: {e}')
-            self._flash_rslt = 1
+        res = self._ble.read(
+            GATT_CONFIG['app_rx'][0],
+            ACTION['TEST_FLASH_IC']['cmd'],
+            ACTION['TEST_FLASH_IC']['read_num']
+        )
+        if len(res) == 0:
+            raise serverNoResponse('TEST3 FAIL')
+        self._flash_rslt = res[0]['data']['value'][3]
 
     @do_in_thread
     def _verify_pressure(self):
-        try:
-            res = self._ble.read(
-                GATT_CONFIG['app_rx'][0],
-                ACTION['GET_PRESSURE']['cmd'],
-                ACTION['GET_PRESSURE']['read_num']
-            )
-            self._pressure = cov.uint16_to_int(res[0]['data']['value'][3:5])
-            self._isPInRange = 900 < self._pressure and self._pressure < 1100
-        except Exception as e:
-            logger.error(f'verify pressure fail: {e}')
-            self._pressure = 0
-            self._isPInRange = False
+        res = self._ble.read(
+            GATT_CONFIG['app_rx'][0],
+            ACTION['GET_PRESSURE']['cmd'],
+            ACTION['GET_PRESSURE']['read_num']
+        )
+        if len(res) == 0:
+            raise serverNoResponse('TEST5 FAIL')
+        self._pressure = cov.uint16_to_int(cov.swap_endian(res[0]['data']['value'][3:5]))
+        self._isPInRange = 900 < self._pressure and self._pressure < 1100
 
     @do_in_thread
     def _verify_temperature(self):
-        try:
-            res = self._ble.read(
-                GATT_CONFIG['app_rx'][0],
-                ACTION['GET_TEMPERATURE']['cmd'],
-                ACTION['GET_TEMPERATURE']['read_num']
-            )
-            self._temperature = cov.uint16_to_int(res[0]['data']['value'][3:5])
-            self._isTInRange = 10 < self._temperature and self._temperature < 30
-        except Exception as e:
-            logger.error(f'verify temperature fail: {e}')
-            self._temperature = 0
-            self._isTInRange = False
+        res = self._ble.read(
+            GATT_CONFIG['app_rx'][0],
+            ACTION['GET_TEMPERATURE']['cmd'],
+            ACTION['GET_TEMPERATURE']['read_num']
+        )
+        if len(res) == 0:
+            raise serverNoResponse('TEST4 FAIL')
+        self._temperature = cov.uint16_to_int(cov.swap_endian(res[0]['data']['value'][3:5]))
+        self._isTInRange = 10 < self._temperature and self._temperature < 30
 
 class fw_update():
     def __init__(self, fw_file_path: str, debug: bool = False):
         self._ble = worker.ble
+        self._show_percent_cnt = 0
         self.OTA_PKT_DATA_MAX_LEN = 230
 
         self.file_path = fw_file_path
@@ -237,6 +237,10 @@ class fw_update():
             next_packet_start_idx = 0 # Point to the first byte of the next packet.
             packet_serial_number = 0
             while next_packet_start_idx < len(self._data_will_be_send):
+                if packet_serial_number % 70 == 0:
+                    worker.message.emit(
+                        f'OTA update: {round(next_packet_start_idx/len(self._data_will_be_send)*100, 1)} %'
+                    )
                 self._split_data(next_packet_start_idx)
                 self._generate_pkt()
                 self._send_pkt()
@@ -386,15 +390,80 @@ class device():
     
     @do_in_thread
     def set_sn(self, sn: str):
-        pkt_no_checksum = ACTION['SET_SN']['cmd'] + cov.swap_endian((cov.ASCII_to_u8_list(sn)))
+        pkt_no_checksum = ACTION['SET_SN']['cmd'] + cov.swap_endian(cov.ASCII_to_u8_list(sn))
         pkt_no_checksum.append(self._ble.get_checksum(pkt_no_checksum))
         pkt = pkt_no_checksum
         self._ble.write(GATT_CONFIG['app_rx'][0], pkt)
     
     @do_in_thread
     def calibrate_pSensor(self, pressure: float):
-        pkt_no_checksum = ACTION['CAL_PRESSURE']['cmd'] + cov.swap_endian((cov.float_to_intList(pressure)))
+        pkt_no_checksum = ACTION['CAL_PRESSURE']['cmd'] + cov.swap_endian(cov.float_2_u8list(pressure))
         pkt_no_checksum.append(self._ble.get_checksum(pkt_no_checksum))
         pkt = pkt_no_checksum
         logger.debug('calibrate_pSensor: %s', pkt)
-        self._ble.write(GATT_CONFIG['app_rx'][0], pkt)
+        res = self._ble.read(GATT_CONFIG['app_rx'][0], pkt, 1)
+        if len(res) == 0:
+            raise serverNoResponse('RECIVE FAIL')
+        return res[0]['data']['value'][3:-1] == cov.swap_endian(cov.float_2_u8list(pressure))
+    
+    @do_in_thread
+    def check_communicable(self):
+        try:
+            return 'Hello' == cov.intList_to_ASCII(
+                self._ble.read(
+                    GATT_CONFIG['app_rx'][0], 
+                    ACTION['CHECK_ALIVE']['cmd'], 
+                    ACTION['CHECK_ALIVE']['read_num']
+                )[0]['data']['value'][3:-2]
+            )
+        except:
+            return False
+        
+    @do_in_thread
+    def find_watch(self) -> list:
+        try:
+            return(
+                self._ble.read(
+                    GATT_CONFIG['app_rx'][0], 
+                    ACTION['WHERE_MY_WATCH']['cmd'], 
+                    ACTION['WHERE_MY_WATCH']['read_num']
+                )[0]['data']['value']
+            )
+        except:
+            return [0, 0, 0, 0, 0, 0, 0, 0]
+    
+    @do_in_thread
+    def subscribe_app_uuid(self):
+        self._ble.subscribe(GATT_CONFIG['app_rx'][0], GATT_CONFIG['app_rx'][1])
+        self._ble.subscribe(GATT_CONFIG['app_tx'][0], GATT_CONFIG['app_tx'][1])
+        self._ble.enable_all_notify()
+    
+    @do_in_thread
+    def subscribe_ota_uuid(self):
+        self._ble.subscribe(GATT_CONFIG['ota_rx'][0], GATT_CONFIG['ota_rx'][1])
+        self._ble.subscribe(GATT_CONFIG['ota_tx'][0], GATT_CONFIG['ota_tx'][1])
+        self._ble.enable_all_notify()
+
+    def get_fw_ver(self):
+        try:
+            return cov.intList_to_ASCII(
+                self._ble.read(
+                    GATT_CONFIG['app_rx'][0], 
+                    ACTION['GET_FW_VER']['cmd'], 
+                    ACTION['GET_FW_VER']['read_num']
+                )[0]['data']['value'][3:-1]
+            )
+        except:
+            return '----'
+    
+    def get_build_time(self):
+        try:
+            return cov.intList_to_ASCII(
+                self._ble.read(
+                    GATT_CONFIG['app_rx'][0], 
+                    ACTION['GET_BUILD_TIME']['cmd'], 
+                    ACTION['GET_BUILD_TIME']['read_num']
+                )[0]['data']['value'][3:-1]
+            )
+        except:
+            return '--- 0 0000, 00:00:00'

@@ -179,9 +179,11 @@ class ble_bleuio_dongle():
         handle = None
         logger.debug(f'ble-bleuio get {uuid} handle...')
 
-        for debug_cnt in range(3):
-            if len(self._peripheral_GATT_table) == 0:
-                self._generate_GATT_table()
+        debug_cnt = 0
+        while len(self._peripheral_GATT_table) == 0 and debug_cnt < 3:
+            self._generate_GATT_table()
+            debug_cnt += 1
+        
         for item in self._peripheral_GATT_table:
             if item[2] == uuid:
                 handle = item[0]

@@ -738,6 +738,7 @@ class BleuIo(object):
 
     def __at_gapscan(self, timeout):
         response = ""
+        self.rx_scanning_results = []
         if not timeout == 0:
             self.send_command("AT+GAPSCAN=" + str(timeout))
             self._scanning = True
@@ -755,7 +756,6 @@ class BleuIo(object):
                 if self.__get_rx_state().__eq__("rx_ready"):
                     return response
         if timeout == 0:
-            self.rx_scanning_results = []
             self.send_command("AT+GAPSCAN")
             while not self.__get_rx_state().__eq__("rx_ready"):
                 if self.rx_buffer.decode("utf-8", "ignore").__contains__(

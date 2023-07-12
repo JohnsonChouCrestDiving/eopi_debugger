@@ -24,504 +24,722 @@
   </property>
   <property name="font">
    <font>
+    <family>Consolas</family>
     <pointsize>11</pointsize>
    </font>
   </property>
   <property name="windowTitle">
    <string>factory test function</string>
   </property>
+  <property name="autoFillBackground">
+   <bool>false</bool>
+  </property>
+  <property name="styleSheet">
+   <string notr="true"/>
+  </property>
   <property name="inputMethodHints">
    <set>Qt::ImhDigitsOnly</set>
   </property>
-  <widget class="QWidget" name="verticalLayoutWidget">
+  <widget class="QGroupBox" name="gBox_DevManager">
    <property name="geometry">
     <rect>
      <x>60</x>
-     <y>70</y>
-     <width>661</width>
-     <height>591</height>
-    </rect>
-   </property>
-   <layout class="QVBoxLayout" name="VLayout_devManage" stretch="10,0,0,100,0">
-    <item>
-     <layout class="QHBoxLayout" name="HLayout_currDev" stretch="0,5">
-      <property name="topMargin">
-       <number>0</number>
-      </property>
-      <item>
-       <widget class="QLabel" name="label_currentDevice">
-        <property name="font">
-         <font>
-          <family>Neue Haas Grotesk Text Pro Medi</family>
-          <pointsize>12</pointsize>
-          <weight>75</weight>
-          <bold>true</bold>
-         </font>
-        </property>
-        <property name="text">
-         <string>C U R R E N T    D E V I C E:</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLabel" name="label_currDevAddr">
-        <property name="font">
-         <font>
-          <family>Neue Haas Grotesk Text Pro Medi</family>
-          <pointsize>20</pointsize>
-         </font>
-        </property>
-        <property name="text">
-         <string>N/A</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignJustify|Qt::AlignVCenter</set>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </item>
-    <item>
-     <widget class="QPushButton" name="Btn_connect">
-      <property name="font">
-       <font>
-        <family>Neue Haas Grotesk Text Pro Blac</family>
-        <pointsize>22</pointsize>
-       </font>
-      </property>
-      <property name="cursor">
-       <cursorShape>PointingHandCursor</cursorShape>
-      </property>
-      <property name="text">
-       <string>C O N N E C T  &gt;&gt;</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QLabel" name="label_nearbyBtDev">
-      <property name="font">
-       <font>
-        <family>Neue Haas Grotesk Text Pro Medi</family>
-        <pointsize>10</pointsize>
-       </font>
-      </property>
-      <property name="text">
-       <string>Nearby bluetooth device:</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QListWidget" name="listWidget_deviceList">
-      <property name="cursor" stdset="0">
-       <cursorShape>PointingHandCursor</cursorShape>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QPushButton" name="Btn_scanDevice">
-      <property name="font">
-       <font>
-        <family>Neue Haas Grotesk Text Pro Blac</family>
-        <pointsize>22</pointsize>
-       </font>
-      </property>
-      <property name="cursor">
-       <cursorShape>PointingHandCursor</cursorShape>
-      </property>
-      <property name="text">
-       <string>S C A N        D E V I C E</string>
-      </property>
-     </widget>
-    </item>
-   </layout>
-  </widget>
-  <widget class="QWidget" name="verticalLayoutWidget_2">
-   <property name="geometry">
-    <rect>
-     <x>790</x>
-     <y>70</y>
-     <width>661</width>
-     <height>361</height>
-    </rect>
-   </property>
-   <layout class="QVBoxLayout" name="VLayout_devTest" stretch="8,0,0,50">
-    <item>
-     <layout class="QHBoxLayout" name="HLayout_currDev_2" stretch="0,0">
-      <property name="topMargin">
-       <number>0</number>
-      </property>
-      <item>
-       <widget class="QLabel" name="label_deviceSN">
-        <property name="font">
-         <font>
-          <family>Neue Haas Grotesk Text Pro Medi</family>
-          <pointsize>12</pointsize>
-          <weight>75</weight>
-          <bold>true</bold>
-         </font>
-        </property>
-        <property name="text">
-         <string>D E V I C E    S N:</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="lineEdit_DevSN">
-        <property name="minimumSize">
-         <size>
-          <width>0</width>
-          <height>46</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>16777215</width>
-          <height>46</height>
-         </size>
-        </property>
-        <property name="font">
-         <font>
-          <family>Cascadia Code SemiLight</family>
-          <pointsize>12</pointsize>
-         </font>
-        </property>
-        <property name="inputMethodHints">
-         <set>Qt::ImhNone</set>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-        <property name="dragEnabled">
-         <bool>true</bool>
-        </property>
-        <property name="placeholderText">
-         <string>Please enter serial number...</string>
-        </property>
-        <property name="clearButtonEnabled">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </item>
-    <item>
-     <widget class="QPushButton" name="Btn_devTest">
-      <property name="font">
-       <font>
-        <family>Neue Haas Grotesk Text Pro Blac</family>
-        <pointsize>20</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="cursor">
-       <cursorShape>PointingHandCursor</cursorShape>
-      </property>
-      <property name="text">
-       <string>&lt;&lt;  C O M P R E H E N S I V E      T E S T  &gt;&gt;</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QLabel" name="label_testDevHistory">
-      <property name="font">
-       <font>
-        <family>Neue Haas Grotesk Text Pro Medi</family>
-        <pointsize>10</pointsize>
-       </font>
-      </property>
-      <property name="text">
-       <string>Test devices history:</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QListWidget" name="listWidget_testFile"/>
-    </item>
-   </layout>
-  </widget>
-  <widget class="QWidget" name="horizontalLayoutWidget_2">
-   <property name="geometry">
-    <rect>
-     <x>800</x>
-     <y>580</y>
-     <width>661</width>
-     <height>81</height>
-    </rect>
-   </property>
-   <layout class="QHBoxLayout" name="Layout_fwOtaUpdata">
-    <item>
-     <widget class="QPushButton" name="Btn_selectFile">
-      <property name="minimumSize">
-       <size>
-        <width>0</width>
-        <height>16</height>
-       </size>
-      </property>
-      <property name="maximumSize">
-       <size>
-        <width>16777215</width>
-        <height>80</height>
-       </size>
-      </property>
-      <property name="font">
-       <font>
-        <family>Neue Haas Grotesk Text Pro Medi</family>
-        <pointsize>14</pointsize>
-       </font>
-      </property>
-      <property name="text">
-       <string>select file</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QTextEdit" name="textEdit_filePath"/>
-    </item>
-    <item>
-     <widget class="QPushButton" name="Btn_updataFw">
-      <property name="maximumSize">
-       <size>
-        <width>16777215</width>
-        <height>80</height>
-       </size>
-      </property>
-      <property name="font">
-       <font>
-        <family>Neue Haas Grotesk Text Pro Blac</family>
-        <pointsize>20</pointsize>
-       </font>
-      </property>
-      <property name="text">
-       <string>update FW</string>
-      </property>
-     </widget>
-    </item>
-   </layout>
-  </widget>
-  <widget class="QLabel" name="label_devManage">
-   <property name="geometry">
-    <rect>
-     <x>40</x>
-     <y>40</y>
-     <width>171</width>
-     <height>31</height>
+     <y>20</y>
+     <width>611</width>
+     <height>581</height>
     </rect>
    </property>
    <property name="font">
     <font>
-     <family>Lucida Sans</family>
+     <family>Consolas</family>
      <pointsize>16</pointsize>
      <italic>true</italic>
      <strikeout>false</strikeout>
     </font>
    </property>
-   <property name="text">
-    <string>Device Manage:</string>
+   <property name="styleSheet">
+    <string notr="true">background-color: rgb(225, 225, 225);</string>
    </property>
+   <property name="title">
+    <string>Device Manage</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+   </property>
+   <property name="checkable">
+    <bool>false</bool>
+   </property>
+   <widget class="QWidget" name="verticalLayoutWidget">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>30</y>
+      <width>567</width>
+      <height>541</height>
+     </rect>
+    </property>
+    <layout class="QVBoxLayout" name="VLayout_devManage" stretch="10,0,0,0,100,0">
+     <item>
+      <layout class="QHBoxLayout" name="HLayout_currDev" stretch="0,5,0">
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="label_currentDevice">
+         <property name="font">
+          <font>
+           <family>Consolas</family>
+           <pointsize>14</pointsize>
+           <weight>50</weight>
+           <italic>false</italic>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Current Device:</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="label_currDevAddr">
+         <property name="font">
+          <font>
+           <family>Consolas</family>
+           <pointsize>20</pointsize>
+           <italic>false</italic>
+          </font>
+         </property>
+         <property name="text">
+          <string>N/A</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignJustify|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="Btn_findWatch">
+         <property name="font">
+          <font>
+           <family>Consolas</family>
+           <pointsize>16</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Find</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="horizontalLayout" stretch="9,10">
+       <item>
+        <layout class="QHBoxLayout" name="HLayout_fwVer" stretch="0,1">
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_fwVer">
+           <property name="font">
+            <font>
+             <family>Consolas</family>
+             <pointsize>12</pointsize>
+             <weight>50</weight>
+             <bold>false</bold>
+            </font>
+           </property>
+           <property name="text">
+            <string>Fw ver.</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_currFwVer">
+           <property name="font">
+            <font>
+             <family>Consolas</family>
+             <pointsize>20</pointsize>
+            </font>
+           </property>
+           <property name="text">
+            <string>N/A</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignJustify|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="HLayout_fwTime" stretch="0,5">
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_fwTime">
+           <property name="font">
+            <font>
+             <family>Consolas</family>
+             <pointsize>12</pointsize>
+             <weight>50</weight>
+             <bold>false</bold>
+            </font>
+           </property>
+           <property name="text">
+            <string>Fw time:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_currFwTime">
+           <property name="font">
+            <font>
+             <family>Consolas</family>
+             <pointsize>20</pointsize>
+            </font>
+           </property>
+           <property name="text">
+            <string>N/A</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignJustify|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="QPushButton" name="Btn_connect">
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+         <pointsize>22</pointsize>
+         <weight>75</weight>
+         <italic>false</italic>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="text">
+        <string>CONNECT &gt;&gt;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_nearbyBtDev">
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+         <pointsize>10</pointsize>
+         <italic>false</italic>
+        </font>
+       </property>
+       <property name="text">
+        <string>Nearby bluetooth device:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QListWidget" name="listWidget_deviceList">
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+        </font>
+       </property>
+       <property name="cursor" stdset="0">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: rgb(255, 255, 255);</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="Btn_scanDevice">
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+         <pointsize>22</pointsize>
+         <weight>75</weight>
+         <italic>false</italic>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="text">
+        <string>SCAN DEVICE</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </widget>
   </widget>
-  <widget class="QLabel" name="label_devTest">
+  <widget class="QGroupBox" name="gBox_guiMesg">
    <property name="geometry">
     <rect>
-     <x>780</x>
-     <y>40</y>
-     <width>131</width>
-     <height>31</height>
+     <x>60</x>
+     <y>630</y>
+     <width>1381</width>
+     <height>211</height>
     </rect>
    </property>
    <property name="font">
     <font>
-     <family>Lucida Sans</family>
+     <family>Consolas</family>
      <pointsize>16</pointsize>
      <italic>true</italic>
-     <strikeout>false</strikeout>
     </font>
    </property>
-   <property name="text">
-    <string>Device Test:</string>
+   <property name="styleSheet">
+    <string notr="true">background-color: rgb(225, 225, 225);</string>
    </property>
+   <property name="title">
+    <string>GUI Message</string>
+   </property>
+   <widget class="QTextBrowser" name="textBrowser_guiMessage">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>30</y>
+      <width>1361</width>
+      <height>171</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Consolas</family>
+      <pointsize>14</pointsize>
+      <italic>false</italic>
+     </font>
+    </property>
+    <property name="styleSheet">
+     <string notr="true"/>
+    </property>
+   </widget>
   </widget>
-  <widget class="QLabel" name="label_devUpdateFw">
+  <widget class="QGroupBox" name="gBox_fwUpdate">
    <property name="geometry">
     <rect>
-     <x>780</x>
-     <y>550</y>
-     <width>211</width>
-     <height>31</height>
+     <x>810</x>
+     <y>20</y>
+     <width>631</width>
+     <height>101</height>
     </rect>
    </property>
    <property name="font">
     <font>
-     <family>Lucida Sans</family>
+     <family>Consolas</family>
      <pointsize>16</pointsize>
      <italic>true</italic>
-     <strikeout>false</strikeout>
     </font>
    </property>
-   <property name="text">
+   <property name="styleSheet">
+    <string notr="true">background-color: rgb(225, 225, 225);</string>
+   </property>
+   <property name="title">
     <string>Device F.W. Update:</string>
    </property>
+   <widget class="QWidget" name="horizontalLayoutWidget_2">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>30</y>
+      <width>591</width>
+      <height>61</height>
+     </rect>
+    </property>
+    <layout class="QHBoxLayout" name="Layout_fwOtaUpdata">
+     <item>
+      <widget class="QPushButton" name="Btn_selectFile">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>16</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>80</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+         <pointsize>14</pointsize>
+         <weight>75</weight>
+         <italic>false</italic>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>select file</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QTextEdit" name="textEdit_filePath">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>50</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>50</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+         <pointsize>14</pointsize>
+         <italic>false</italic>
+        </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: rgb(255, 255, 255);</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="Btn_updataFw">
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>80</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+         <pointsize>20</pointsize>
+         <weight>75</weight>
+         <italic>false</italic>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>update FW</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </widget>
   </widget>
-  <widget class="QLabel" name="label_calBarometric">
+  <widget class="QGroupBox" name="gBox_calBaro">
    <property name="geometry">
     <rect>
-     <x>780</x>
-     <y>450</y>
-     <width>231</width>
-     <height>31</height>
+     <x>810</x>
+     <y>230</y>
+     <width>631</width>
+     <height>91</height>
     </rect>
    </property>
    <property name="font">
     <font>
-     <family>Lucida Sans</family>
+     <family>Consolas</family>
      <pointsize>16</pointsize>
      <italic>true</italic>
-     <strikeout>false</strikeout>
     </font>
    </property>
-   <property name="text">
-    <string>Calibrate Barometric:</string>
+   <property name="autoFillBackground">
+    <bool>false</bool>
    </property>
+   <property name="styleSheet">
+    <string notr="true">background-color: rgb(225, 225, 225);</string>
+   </property>
+   <property name="title">
+    <string>GroupBox</string>
+   </property>
+   <widget class="QPushButton" name="Btn_Calibrate">
+    <property name="geometry">
+     <rect>
+      <x>290</x>
+      <y>30</y>
+      <width>321</width>
+      <height>51</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Consolas</family>
+      <pointsize>20</pointsize>
+      <weight>75</weight>
+      <italic>false</italic>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="cursor">
+     <cursorShape>PointingHandCursor</cursorShape>
+    </property>
+    <property name="styleSheet">
+     <string notr="true"/>
+    </property>
+    <property name="text">
+     <string> Calibrate &gt;&gt;</string>
+    </property>
+   </widget>
+   <widget class="QWidget" name="horizontalLayoutWidget">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>30</y>
+      <width>251</width>
+      <height>51</height>
+     </rect>
+    </property>
+    <layout class="QHBoxLayout" name="HLayout_inputCOMport" stretch="0,0,2">
+     <item>
+      <widget class="QLabel" name="label_COM">
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+         <pointsize>14</pointsize>
+         <italic>false</italic>
+        </font>
+       </property>
+       <property name="text">
+        <string>C O M</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_COMport">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>46</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>46</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+         <pointsize>14</pointsize>
+        </font>
+       </property>
+       <property name="autoFillBackground">
+        <bool>false</bool>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: rgb(255, 255, 255);</string>
+       </property>
+       <property name="inputMethodHints">
+        <set>Qt::ImhDigitsOnly</set>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="placeholderText">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="Btn_COMportOpen">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>46</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>46</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+         <pointsize>14</pointsize>
+         <italic>false</italic>
+        </font>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="text">
+        <string>Open</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </widget>
   </widget>
-  <widget class="QWidget" name="horizontalLayoutWidget">
+  <widget class="QGroupBox" name="gBox_DevTest">
    <property name="geometry">
     <rect>
-     <x>800</x>
-     <y>480</y>
-     <width>251</width>
-     <height>51</height>
-    </rect>
-   </property>
-   <layout class="QHBoxLayout" name="HLayout_inputCOMport" stretch="0,0,2">
-    <item>
-     <widget class="QLabel" name="label_COM">
-      <property name="font">
-       <font>
-        <family>Neue Haas Grotesk Text Pro Medi</family>
-        <pointsize>14</pointsize>
-       </font>
-      </property>
-      <property name="text">
-       <string>COM</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QLineEdit" name="lineEdit_COMport">
-      <property name="minimumSize">
-       <size>
-        <width>0</width>
-        <height>46</height>
-       </size>
-      </property>
-      <property name="maximumSize">
-       <size>
-        <width>16777215</width>
-        <height>46</height>
-       </size>
-      </property>
-      <property name="font">
-       <font>
-        <family>Neue Haas Grotesk Text Pro Medi</family>
-        <pointsize>14</pointsize>
-       </font>
-      </property>
-      <property name="autoFillBackground">
-       <bool>false</bool>
-      </property>
-      <property name="inputMethodHints">
-       <set>Qt::ImhDigitsOnly</set>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="placeholderText">
-       <string/>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QPushButton" name="Btn_COMportOk">
-      <property name="minimumSize">
-       <size>
-        <width>0</width>
-        <height>46</height>
-       </size>
-      </property>
-      <property name="maximumSize">
-       <size>
-        <width>16777215</width>
-        <height>46</height>
-       </size>
-      </property>
-      <property name="font">
-       <font>
-        <family>Neue Haas Grotesk Text Pro Medi</family>
-        <pointsize>14</pointsize>
-       </font>
-      </property>
-      <property name="cursor">
-       <cursorShape>PointingHandCursor</cursorShape>
-      </property>
-      <property name="text">
-       <string>OK</string>
-      </property>
-     </widget>
-    </item>
-   </layout>
-  </widget>
-  <widget class="QPushButton" name="Btn_Calibrate">
-   <property name="geometry">
-    <rect>
-     <x>1080</x>
-     <y>480</y>
-     <width>381</width>
-     <height>51</height>
+     <x>810</x>
+     <y>340</y>
+     <width>631</width>
+     <height>261</height>
     </rect>
    </property>
    <property name="font">
     <font>
-     <family>Neue Haas Grotesk Text Pro Blac</family>
-     <pointsize>20</pointsize>
-    </font>
-   </property>
-   <property name="cursor">
-    <cursorShape>PointingHandCursor</cursorShape>
-   </property>
-   <property name="text">
-    <string> C a l i b r a t e  &gt;&gt;</string>
-   </property>
-  </widget>
-  <widget class="QTextBrowser" name="textBrowser_guiMessage">
-   <property name="geometry">
-    <rect>
-     <x>60</x>
-     <y>720</y>
-     <width>1391</width>
-     <height>111</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QLabel" name="label_guiMassage">
-   <property name="geometry">
-    <rect>
-     <x>40</x>
-     <y>690</y>
-     <width>141</width>
-     <height>31</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <family>Lucida Sans</family>
+     <family>Consolas</family>
      <pointsize>16</pointsize>
      <italic>true</italic>
-     <strikeout>false</strikeout>
     </font>
    </property>
-   <property name="text">
-    <string>GUI Message:</string>
+   <property name="autoFillBackground">
+    <bool>false</bool>
    </property>
+   <property name="styleSheet">
+    <string notr="true">background-color: rgb(225, 225, 225);</string>
+   </property>
+   <property name="title">
+    <string>Device Test</string>
+   </property>
+   <property name="flat">
+    <bool>false</bool>
+   </property>
+   <widget class="QWidget" name="verticalLayoutWidget_2">
+    <property name="geometry">
+     <rect>
+      <x>24</x>
+      <y>30</y>
+      <width>591</width>
+      <height>221</height>
+     </rect>
+    </property>
+    <layout class="QVBoxLayout" name="VLayout_devTest" stretch="0,0,0">
+     <item>
+      <widget class="QPushButton" name="Btn_devTest">
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+         <pointsize>20</pointsize>
+         <weight>75</weight>
+         <italic>false</italic>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="text">
+        <string>&lt;&lt;  COMPREHENSIVE TEST  &gt;&gt;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_testDevHistory">
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+         <pointsize>10</pointsize>
+         <italic>false</italic>
+        </font>
+       </property>
+       <property name="text">
+        <string>Test devices history:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QTextBrowser" name="textBrowser_testHistory">
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+         <pointsize>16</pointsize>
+        </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: rgb(255, 255, 255);</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+  </widget>
+  <widget class="QGroupBox" name="gBox_DevSn">
+   <property name="geometry">
+    <rect>
+     <x>810</x>
+     <y>140</y>
+     <width>631</width>
+     <height>71</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Consolas</family>
+     <pointsize>16</pointsize>
+     <italic>true</italic>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background-color: rgb(225, 225, 225);</string>
+   </property>
+   <property name="title">
+    <string>Device SN</string>
+   </property>
+   <widget class="QLineEdit" name="lineEdit_DevSN">
+    <property name="geometry">
+     <rect>
+      <x>50</x>
+      <y>30</y>
+      <width>561</width>
+      <height>30</height>
+     </rect>
+    </property>
+    <property name="minimumSize">
+     <size>
+      <width>0</width>
+      <height>30</height>
+     </size>
+    </property>
+    <property name="maximumSize">
+     <size>
+      <width>16777215</width>
+      <height>30</height>
+     </size>
+    </property>
+    <property name="font">
+     <font>
+      <family>Consolas</family>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(255, 255, 255);</string>
+    </property>
+    <property name="inputMethodHints">
+     <set>Qt::ImhNone</set>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="maxLength">
+     <number>32</number>
+    </property>
+    <property name="dragEnabled">
+     <bool>true</bool>
+    </property>
+    <property name="placeholderText">
+     <string>Please enter serial number...</string>
+    </property>
+    <property name="clearButtonEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
   </widget>
  </widget>
  <resources/>

@@ -39,10 +39,10 @@ do_in_thread = do_in_thread(worker)
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
-        Eng_mode = 1
+        Eng_mode = 0
         hr_monitor_use = 0
         ble_command_use = 0
-        cr1_ble_use = 1
+        cr1_ble_use = 0
         factory_test_func_use = 1
         super(MainWindow, self).__init__()
         self.setupUi(self)
@@ -51,9 +51,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.baud_rates = BAUD_RATES
         # self.logger = loggers()
         # self.logger.msg.connect(self.set_UI)
-        self.full_test = full_test()
+        from page.factory_test.function import factory_test_func
+        self.full_test = factory_test_func()
+        # self.full_test = full_test()
         self.full_test_Layout.addWidget(self.full_test)
-        self.guiwindowtitle = r'EOPI debugger V00.00.02'
+        self.guiwindowtitle = r'EOPI debugger V01.00.00'
         # self.guiwindowtitle = r'FW_Loader_V01.17'
 
         if Eng_mode:
@@ -90,11 +92,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # self.ble.send([0x23])
 
 
-        self.tabWidget.setCurrentIndex(2)
+        self.tabWidget.setCurrentIndex(0)
         self.setWindowTitle(self.guiwindowtitle)
         self.setWindowIcon(QIcon('cl_icon.ico'))
-
-        worker.UI.connect(self.set_UI)
+        if __name__ == '__main__':
+            worker.UI.connect(self.set_UI)
         
         ################################################
 
@@ -104,7 +106,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         # self.tabWidget.tabBarClicked.connect(self.press_up)
 
-        self.uart_connect_pushButton.clicked.connect(self.trigger_uart)
+        # self.uart_connect_pushButton.clicked.connect(self.trigger_uart)
         # ###############   I2C    ####################
         # I2C_thread.connect_status.connect(self.display_connect_status)
         # I2C_thread.UI.connect(self.set_UI)
@@ -141,34 +143,39 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     #     pass
 
     def trigger_uart(self):
-        if self.uart_connect_pushButton.isChecked():
-            try:
-                self.open_uart(self.port, self.baud_rates)
-            except:
-                ans = QMessageBox.critical(self,'UART connect fail','Check UART connection and Com port setting')
-        else:
-            self.close_uart()
+        # if self.uart_connect_pushButton.isChecked():
+        #     try:
+        #         self.open_uart(self.port, self.baud_rates)
+        #     except:
+        #         ans = QMessageBox.critical(self,'UART connect fail','Check UART connection and Com port setting')
+        # else:
+        #     self.close_uart()
+        pass
 
     def period_check(self):
-        self.check_dongle_open()
+        # self.check_dongle_open()
+        pass
 
     def check_dongle_open(self):
-        if dongle.is_open():
-            self.uart_connect_pushButton.setChecked(True)
-            self.uart_connect_pushButton.setText('Connected')
-        else:
-            self.uart_connect_pushButton.setChecked(False)
-            self.uart_connect_pushButton.setText('Connect')
+        # if dongle.is_open():
+        #     self.uart_connect_pushButton.setChecked(True)
+        #     self.uart_connect_pushButton.setText('Connected')
+        # else:
+        #     self.uart_connect_pushButton.setChecked(False)
+        #     self.uart_connect_pushButton.setText('Connect')
+        pass
 
     def open_uart(self, port:str, baud_rate:int):
-        dongle.open(port, baud_rate)
-        self.uart_connect_pushButton.setChecked(True)
-        self.uart_connect_pushButton.setText('Connected')
+        # dongle.open(port, baud_rate)
+        # self.uart_connect_pushButton.setChecked(True)
+        # self.uart_connect_pushButton.setText('Connected')
+        pass
 
     def close_uart(self):
-        dongle.close()
-        self.uart_connect_pushButton.setChecked(False)
-        self.uart_connect_pushButton.setText('Connect')
+        # dongle.close()
+        # self.uart_connect_pushButton.setChecked(False)
+        # self.uart_connect_pushButton.setText('Connect')
+        pass
 
     def display_SN(self, datas):
         pass
@@ -177,6 +184,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         pass
 
     def set_UI(self, function):
+        logger.debug(function)
         function()
 
 if __name__ == '__main__':

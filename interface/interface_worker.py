@@ -65,6 +65,7 @@ class InterfaceWorker(QThread):
 class GenericWorker(QThread):
     hrMonitor           = pyqtSignal(dict)
     UI                  = pyqtSignal(object)
+    message             = pyqtSignal(str)
 
     __instance = None
     def __new__(cls):
