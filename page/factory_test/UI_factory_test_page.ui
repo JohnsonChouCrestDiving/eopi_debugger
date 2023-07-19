@@ -6,19 +6,19 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1500</width>
+    <width>1280</width>
     <height>900</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>1500</width>
+    <width>1280</width>
     <height>900</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>1500</width>
+    <width>1280</width>
     <height>900</height>
    </size>
   </property>
@@ -43,8 +43,8 @@
   <widget class="QGroupBox" name="gBox_DevManager">
    <property name="geometry">
     <rect>
-     <x>60</x>
-     <y>20</y>
+     <x>10</x>
+     <y>10</y>
      <width>611</width>
      <height>581</height>
     </rect>
@@ -285,9 +285,9 @@
   <widget class="QGroupBox" name="gBox_guiMesg">
    <property name="geometry">
     <rect>
-     <x>60</x>
-     <y>630</y>
-     <width>1381</width>
+     <x>10</x>
+     <y>620</y>
+     <width>1261</width>
      <height>211</height>
     </rect>
    </property>
@@ -328,8 +328,8 @@
   <widget class="QGroupBox" name="gBox_fwUpdate">
    <property name="geometry">
     <rect>
-     <x>810</x>
-     <y>20</y>
+     <x>640</x>
+     <y>10</y>
      <width>631</width>
      <height>101</height>
     </rect>
@@ -439,8 +439,8 @@
   <widget class="QGroupBox" name="gBox_calBaro">
    <property name="geometry">
     <rect>
-     <x>810</x>
-     <y>230</y>
+     <x>640</x>
+     <y>220</y>
      <width>631</width>
      <height>91</height>
     </rect>
@@ -585,8 +585,8 @@
   <widget class="QGroupBox" name="gBox_DevTest">
    <property name="geometry">
     <rect>
-     <x>810</x>
-     <y>340</y>
+     <x>640</x>
+     <y>330</y>
      <width>631</width>
      <height>261</height>
     </rect>
@@ -672,8 +672,8 @@
   <widget class="QGroupBox" name="gBox_DevSn">
    <property name="geometry">
     <rect>
-     <x>810</x>
-     <y>140</y>
+     <x>640</x>
+     <y>130</y>
      <width>631</width>
      <height>71</height>
     </rect>

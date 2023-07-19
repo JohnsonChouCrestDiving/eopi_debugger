@@ -39,7 +39,7 @@ ACTION = {
     'GET_BUILD_TIME'    :{'cmd': [0xD0, 0x0D, 0x01, 0xC1],          'read_num': 1},
     'TEST_FLASH_IC'     :{'cmd': [0xD0, 0x0F, 0x01, 0xEB],          'read_num': 1},
     'SET_SN'            :{'cmd': [0xD0, 0x10, 0x00],                'read_num': 0},
-    'CAL_PRESSURE'      :{'cmd': [0xD0, 0x11, 0x01],                'read_num': 1},
+    'CAL_PRESSURE'      :{'cmd': [0xD0, 0x11, 0x00],                'read_num': 1},
 }
 
 class eAmotaCommand(Enum):

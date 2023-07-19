@@ -168,7 +168,6 @@ class Bluetooth_LE(QThread):
         logger.debug('receive_data - handle: 0x{:02X}, command: {}'.format(handle, ['{:02X}'.format(i) for i in value]))
         
         self.received.append({'source': 'BLE', 'data': {'handle': handle, 'value': list(value)}})
-        self.rx_data.emit({'source': 'BLE', 'data': {'handle': handle, 'value': list(value)}})
 
     def write(self, uuid, command):
         self.send_command(uuid, command, False)

@@ -58,5 +58,5 @@ class Config_creator():
     
     
 if __name__ == '__main__':
-    aa = Config_creator()
+    aa = Config_creator('FW')
     aa.add_config('FW', 'path', 123)
