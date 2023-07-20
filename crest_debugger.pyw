@@ -18,10 +18,8 @@ logger.setLevel(0)
 
 #sub-module
 
-cov = cov()
 worker = GenericWorker()
 do_in_thread = do_in_thread(worker)
-
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
@@ -29,14 +27,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         factory_test_func_use = 1
         super(MainWindow, self).__init__()
         self.setupUi(self)
-        from page.factory_test.function import factory_test_func
+        from page.factory_full_test.main import factory_test_func
         self.full_test = factory_test_func()
         self.full_test_Layout.addWidget(self.full_test)
         self.guiwindowtitle = r'EOPI debugger V02.00.00'
 
         if Eng_mode:
             if factory_test_func_use:
-                from page.factory_test.function import factory_test_func
+                from page.factory_full_test.main import factory_test_func
                 self.factory_test = factory_test_func()
                 self.tabWidget.addTab(self.factory_test, 'factory_test_function')
 

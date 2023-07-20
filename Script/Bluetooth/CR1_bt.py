@@ -6,7 +6,7 @@ Ex. gatt config, cmd, etc.
 from enum import Enum
 from interface.interface_worker import  GenericWorker, do_in_thread
 from common.convert import Data_convertor as cov
-from page.factory_test.err_cls import *
+from Error.err_cls import *
 import logging
 import time
 import os

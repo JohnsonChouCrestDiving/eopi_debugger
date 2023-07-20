@@ -6,13 +6,13 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1500</width>
+    <width>1280</width>
     <height>900</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>1500</width>
+    <width>1280</width>
     <height>900</height>
    </size>
   </property>
@@ -30,20 +30,20 @@
     <property name="geometry">
      <rect>
       <x>0</x>
-      <y>30</y>
-      <width>1500</width>
+      <y>0</y>
+      <width>1280</width>
       <height>900</height>
      </rect>
     </property>
     <property name="minimumSize">
      <size>
-      <width>1500</width>
+      <width>1280</width>
       <height>900</height>
      </size>
     </property>
     <property name="maximumSize">
      <size>
-      <width>1500</width>
+      <width>1280</width>
       <height>900</height>
      </size>
     </property>
@@ -84,8 +84,8 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>1491</width>
-        <height>841</height>
+        <width>1271</width>
+        <height>871</height>
        </rect>
       </property>
       <layout class="QGridLayout" name="full_test_Layout"/>
