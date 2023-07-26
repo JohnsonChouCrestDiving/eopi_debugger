@@ -380,7 +380,7 @@ class QLed(QWidget):
         QWidget.mouseReleaseEvent(self, event)
 
     def toggleValue(self): 
-	    self.m_value=not self.m_value
+        self.m_value=not self.m_value
         self.update()
 
 if __name__=="__main__":

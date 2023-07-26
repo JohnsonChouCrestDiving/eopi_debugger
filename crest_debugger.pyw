@@ -11,7 +11,6 @@ from PyQt5.QtWidgets import *
 #module
 from interface.interface_worker import  GenericWorker, do_in_thread
 from UI_crest_debugger import Ui_MainWindow
-from common.convert import Data_convertor as cov
 import logging
 logger = logging.getLogger('bluetooth')
 logger.setLevel(0)
@@ -46,7 +45,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
 
     def set_UI(self, function):
-        logger.debug(function)
+        # logger.debug(function)
         function()
 
 if __name__ == '__main__':

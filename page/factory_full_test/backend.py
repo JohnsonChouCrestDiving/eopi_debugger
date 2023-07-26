@@ -2,11 +2,9 @@
 import sys
 import os
 import time
-from enum import Enum
-import csv
 import serial
 import re
-from datetime import datetime
+import csv
 sys.path.append(os.getcwd())
 
 #third party
@@ -17,11 +15,11 @@ import openpyxl
 from openpyxl.styles import PatternFill
 
 #module
+from pygatt.backends import BLEAddressType
 from interface.interface_worker import  GenericWorker, do_in_thread
 from interface.bluetooth.bluetooth import dongle
-from common.convert import Data_convertor as cov
 from common.config import Config_creator
-from Script.Bluetooth.CR1_bt import test, device, fw_update
+from Script.Bluetooth.CR1_bt import test, device, fw_update, log_readout
 from Error.err_cls import *
 from common.UI_object import Timer_generator
 import logging
@@ -34,29 +32,44 @@ class backend():
     def __init__(self):
         self.config = Config_creator('factory_test_func')
         self.config.add_config('factory_test_func', 'dongle', dongle.bleuio.value)
-        self.config.add_config('factory_test_func', 'RSSI_LIMIT', -60)  # dBm, device will only display when the RSSI is higher than this value
+        self.config.add_config('factory_test_func', 'RSSI_LIMIT', -100)  # dBm, device will only display when the RSSI is higher than this value
         self.config.add_config('factory_test_func', 'sacn_time', 3)     # seconds
         self.config.add_config('factory_test_func', 'test_device', 'CREST-CR1')
 
-        self.dongle_current = self.config.get_config['factory_test_func']['dongle']
-        self.scan_time = self.config.get_config['factory_test_func']['sacn_time']
-        self.test_device = self.config.get_config['factory_test_func']['test_device']
-        self.rssi_limit = self.config.get_config['factory_test_func']['RSSI_LIMIT']
+        self._dongle_current = self.config.get_config()['factory_test_func']['dongle']
+        self._scan_time = self.config.get_config()['factory_test_func']['sacn_time']
+        self._test_device = self.config.get_config()['factory_test_func']['test_device']
+        self._rssi_limit = self.config.get_config()['factory_test_func']['RSSI_LIMIT']
         self._display_devices = []
         self._test_data = {}
         self._barometer = None
-        self._gui_mes_sn = 0
+        self._instrument_p = 0.0    # unit: hPa
+        self._instrument_t = 0.0    # unit: degree C
+        self._is_barometer_p_refrash = False
         self._fw_ver = ''
         self._fw_build_t = ''
+        self._dev_common = device()
         self._timer = {
-            'connChecker': {'timer': QTimer(), 'interval': 5000, 'functions': [self._check_conn_status]},
-            'awakener': {'timer': QTimer(), 'interval': 20000, 'functions': [self._dev_common.check_communicable]},
+            'connChecker': {
+                'timer': QTimer(), 
+                'interval': 5000, 
+                'functions': [self._check_conn_status]
+            },
+            'awakener': {
+                'timer': QTimer(), 
+                'interval': 20000, 
+                'functions': [self._dev_common.check_communicable]
+            },
+            'reflashCalPValue': {
+                'timer': QTimer(), 
+                'interval': 5000, 
+                'functions': [self._get_barometer_data]
+            },
         }
         Timer_generator(self, self._timer)
         self._ble = worker.ble
         if self._ble.client == None:
-            self._ble.select_interface(self.dongle_current)
-        self._dev_common = device()
+            self._ble.select_interface(self._dongle_current)
 
     def do_scan(self):
         """
@@ -64,7 +77,7 @@ class backend():
         """
         worker.message.emit('SCAN START')
         self._ble.scan(
-            timeout=self.scan_time, 
+            timeout=self._scan_time, 
             scan_cb=self._store_scan_data
         )
         self._sort_devices_by_rssi()
@@ -73,15 +86,18 @@ class backend():
     def get_scan_data(self) -> list:
         return self._display_devices
 
-    def do_conn_dev(self, addr) -> bool:
+    def do_conn_dev(self, addr, addr_type, dev_name) -> bool:
         """
         @brief: Do connect btn event things.
         @return Is now connecting?
         """
-        self._ble.connect(addr)
+        self._ble.connect(
+            addr, 
+            BLEAddressType.public if addr_type == '[0' else BLEAddressType.random
+        )
         time.sleep(2)
         is_conn = self._ble.is_connect()
-        if is_conn:
+        if is_conn and self._test_device == dev_name:
             self._dev_common.subscribe_app_uuid()
             self._fw_ver = self._dev_common.get_fw_ver()
             self._fw_build_t = self._dev_common.get_build_time()
@@ -111,24 +127,30 @@ class backend():
         comport = 'COM' + port_num
         if self._barometer == None or self._barometer.portstr != comport:
             self._barometer = serial.Serial(comport)
-        worker.UI.emit('COM PORT OK')
+            # self._timer['reflashCalPValue']['timer'].start(5000)
+        worker.message.emit('COM PORT OK')
     
+    @do_in_thread
     def do_cal_pSensor(self):
-        self._stop_bt_timer()
-        if self._barometer == None:
-            raise conditionShort('NO COM')
-        if not self._dev_common.check_communicable():
-            raise serverNoResponse('TEST FAIL')
-        
-        data_p, data_t= self._get_barometer_data()
-        if 900 < data_p and data_p < 1100:
-            worker.UI.emit(
-                'CALIBRATE PASS' if self._dev_common.calibrate_pSensor(data_p) else 'CALIBRATE FAIL'
-            )
-        else:
-            worker.UI.emit('Pressure Invalid')
-        self._start_bt_timer()
+        try:
+            self._stop_bt_timer()
+            if self._barometer == None:
+                raise conditionShort('NO COM')
+            if not self._dev_common.check_communicable():
+                raise serverNoResponse('RECIVE FAIL')
+            # self._instrument_p = 1000
+            
+            self._get_barometer_data()
+            if 900 < self._instrument_p and self._instrument_p < 1100:
+                worker.message.emit(
+                    'CALIBRATE PASS' if self._dev_common.calibrate_pSensor(self._instrument_p) else 'CALIBRATE FAIL'
+                )
+            else:
+                worker.message.emit('Pressure Invalid')
+        finally:
+            self._start_bt_timer()
 
+    @do_in_thread
     def _get_barometer_data(self):
         # sync data frame
         pinst_read = self._barometer.read(1) # read start word
@@ -141,17 +163,18 @@ class backend():
         while self._barometer.in_waiting >= 16 or atm_valid == False:
             pinst_read = self._barometer.read(1) # read start word
             pinst_read = self._barometer.read(14) # pinst datasize = 14
-            logger.debug('pinst_read: ' + pinst_read.decode('utf8'))
             if re.findall('420101', pinst_read.decode('utf8')) != []:
-                temperature = float(re.findall('420101(\d+)', pinst_read.decode('utf8'))[0])/10
-                logger.debug(f'Instrument Temperature: {temperature}')
+                self._instrument_t = float(re.findall('420101(\d+)', pinst_read.decode('utf8'))[0])/10
+                logger.debug(f'Instrument Temperature: {self._instrument_t}')
             if re.findall('439101', pinst_read.decode('utf8')) != []:
-                atm_pressure = float(re.findall('439101(\d+)', pinst_read.decode('utf8'))[0])/10
-                worker.UI.emit(f'Instrument Pressure: {atm_pressure}')
-                logger.debug(f'Instrument Pressure: {atm_pressure}')
+                self._instrument_p = float(re.findall('439101(\d+)', pinst_read.decode('utf8'))[0])/10
+                worker.message.emit(f'Instrument Pressure = {self._instrument_p}')
+                logger.debug(f'Instrument Pressure: {self._instrument_p}')
                 atm_valid = True
             pinst_read = self._barometer.read(1) # read end word
-        return (atm_pressure, temperature)
+
+    def get_current_voltage(self) -> int:
+        return self._dev_common.get_battery_volt()
 
     def _start_bt_timer(self):
         worker.UI.emit(lambda: self._timer['connChecker']['timer'].start(5000)) # ms
@@ -165,7 +188,7 @@ class backend():
         self._display_devices = []
         for value in msg.values():
             device_name, address, rssi, packet_data = self._get_inf_from_dongle_data(value)
-            if rssi > self.rssi_limit and self.test_device == device_name:
+            if rssi > self._rssi_limit:
                 self._display_devices.append(
                     bt_dev_display_info(address, device_name, rssi, packet_data)
                 )
@@ -205,11 +228,11 @@ class backend():
         @return (name, address, rssi, packet_data)
         """
         rtn = ()
-        if self.dongle_current == dongle.bleuio.value:
+        if self._dongle_current == dongle.bleuio.value:
             rtn = (
                 value['name'], value['address'], value['rssi'], value['pkt_dat']
             )
-        elif self.dongle_current == dongle.blueGiga.value:
+        elif self._dongle_current == dongle.blueGiga.value:
             rtn = (
                 value.name, value.address, value.rssi, value.packet_data
             )
@@ -223,7 +246,7 @@ class backend():
         self._stop_bt_timer()
         if not self._dev_common.check_communicable():
             self._start_bt_timer()
-            raise serverNoResponse('TEST FAIL')
+            raise serverNoResponse('RECIVE FAIL')
         objTemp = test()
         if objTemp.start(): # if test finished
             self._test_data = objTemp.get_result_data()
@@ -246,8 +269,94 @@ class backend():
     
     def _check_conn_status(self):
         if not self._ble.is_connect():
-            pass
-            # self._disconnect_dev()
+            worker.message.emit('D')
+    
+    def do_update_fw(self, file_path: str):
+        """
+        @brief: Do update fw btn event things.
+        """
+        if not self._dev_common.check_communicable():
+            raise serverNoResponse('RECIVE FAIL')
+        self._stop_bt_timer()
+        self._dev_common.subscribe_ota_uuid()
+        ota_update = fw_update(file_path)
+        error_code =  ota_update.start()
+        if error_code is not None: # end of ota update
+            worker.message.emit(str(error_code))
+        self._start_bt_timer()
+
+    def find_watch(self):
+        """
+        @brief: Do Find watch btn event things.
+        """
+        if len(self._dev_common.find_watch()) == 0:
+            raise serverNoResponse('RECIVE FAIL')
+
+    def _generate_csv_file(self, name: str, data: dict):
+        self._isAllPass = True
+        # folder = r'.\page\factory_test\test_report\\'
+        folder = r'.\test_report\\'
+        name.rstrip('\x00')
+        with open(folder + name + '.csv', 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerows([
+                ['Firmware version:', self._fw_ver],
+                ['Firmware build time:', self._fw_build_t],
+                [' '],
+                ['Test case', 'Value/Error code', 'Note']
+            ])
+            for test_case, value in data.items():
+                writer.writerow([test_case, value[0], value[1]])
+                if value[1] != 'Pass':
+                    self._isAllPass = False
+    
+    def _generate_xslx_file(self, name: str, data: dict):
+        self._isAllPass = True
+        wb = openpyxl.Workbook()
+        s1 = wb[name]
+        s1['A1'].value = 'Firmware version:'
+        s1['A2'].value = self._fw_ver
+        s1['B1'].value = 'Firmware build time:'
+        s1['B2'].value = self._fw_build_t
+        s1['D1'].value = 'Test case'
+        s1['D2'].value = 'Value/Error code'
+        s1['D3'].value = 'Note' 
+        row = 4
+        for test_case, value in data.items():
+            row += 1
+            s1.cell(row, 0).value = test_case
+            s1.cell(row, 1).value = value[0]
+            s1.cell(row, 2).value = value[1]
+            if value[1] != 'Pass':
+                self._isAllPass = False
+                for column in range(3):
+                    s1.cell(row, column).fill = PatternFill(
+                        fill_type='solid', fgColor='FF0000'
+                    )
+        wb.save(name + '.xlsx')
+
+    def do_export_log(self):
+        """
+        @brief: Do export file btn event things.
+        """
+        self._stop_bt_timer()
+        sn = self._dev_common.get_sn()
+        objTemp = log_readout()
+        objTemp.start()
+        data = objTemp.get_all_test_result()
+        self._generate_csv_file(sn, data)
+        self._start_bt_timer()
+    
+    def do_write_sn(self, sn: str):
+        """
+        @brief: Do write sn btn event things.
+        """
+        self._stop_bt_timer()
+        if self._dev_common.check_communicable() == False:
+            self._start_bt_timer()
+            raise serverNoResponse('RECIVE FAIL')
+        self._dev_common.set_sn(sn)
+        self._start_bt_timer()
 
 class bt_dev_display_info(object):
     def __init__(self, ble_addr: str, device_name: str, rssi: int, packet_data):

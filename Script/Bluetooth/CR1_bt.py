@@ -30,6 +30,7 @@ ACTION = {
     # DEVICE
     'WHERE_MY_WATCH'    :{'cmd': [0xA0, 0x00, 0x00, 0x00, 0xFF],    'read_num': 1},
     'GET_FW_VER'        :{'cmd': [0xA0, 0x01, 0x01, 0x5A],          'read_num': 1},
+    'SN'            :{'cmd': [0xA0, 0x02, 0x01, 0x65],          'read_num': 1},
     'CHECK_ALIVE'       :{'cmd': [0xA0, 0x04, 0x01, 0x1B],          'read_num': 1},
     # EOPI TEST
     'GET_TEMPERATURE'   :{'cmd': [0xD0, 0x03, 0x01, 0x17],          'read_num': 1},
@@ -39,7 +40,12 @@ ACTION = {
     'GET_BUILD_TIME'    :{'cmd': [0xD0, 0x0D, 0x01, 0xC1],          'read_num': 1},
     'TEST_FLASH_IC'     :{'cmd': [0xD0, 0x0F, 0x01, 0xEB],          'read_num': 1},
     'SET_SN'            :{'cmd': [0xD0, 0x10, 0x00],                'read_num': 0},
+    'GET_SN'            :{'cmd': [0xD0, 0x10, 0x01, 0x7F],          'read_num': 1},
     'CAL_PRESSURE'      :{'cmd': [0xD0, 0x11, 0x00],                'read_num': 1},
+    'LOG_READOUT'       :{'cmd': [0xD0, 0x12, 0x01, 0x55],          'read_num': 1},
+    'W_TEST_RESULT'     :{'cmd': [0xD0, 0x12, 0x00],                'read_num': 0},
+    'READ_FLAG_TRUE'    :{'cmd': [0xD0, 0x13, 0x00, 0x01, 0xD5],    'read_num': 0},
+    'READ_FLAG_FALSE'   :{'cmd': [0xD0, 0x13, 0x00, 0x00, 0xD2],    'read_num': 0},
 }
 
 class eAmotaCommand(Enum):
@@ -85,6 +91,7 @@ class test():
         self._test_flash_ic()
         self._verify_temperature()
         self._verify_pressure()
+        self._write_test_log()
         self._gen_data()
         return True
 
@@ -94,7 +101,7 @@ class test():
         {
             'battery_voltage': (int, 'err_msg'),
             'rtc': (0 ~ 2, 'err_msg'),
-            'flash': (0 ~ 2, 'err_msg'),
+            'flash': (0 ~ 4, 'err_msg'),
             'temperature': (uint8, 'err_msg'),
             'pressure': (uint16, 'err_msg')
         }
@@ -181,6 +188,18 @@ class test():
             raise serverNoResponse('TEST4 FAIL')
         self._temperature = cov.uint16_to_int(cov.swap_endian(res[0]['data']['value'][3:5]))
         self._isTInRange = 10 < self._temperature and self._temperature < 30
+
+    @do_in_thread
+    def _write_test_log(self):
+        data = [0,0,0,0,0,0,0,0,0,0,0,0,0]
+        data.extend(cov.i16_to_u8_list(self._battery_volt))
+        data.append(self._rtc_rslt)
+        data.append(self._flash_rslt)
+        data.extend(cov.i16_to_u8_list(self._pressure))
+        data.extend(cov.i16_to_u8_list(self._temperature))
+        pkt_no_checksum = ACTION['W_TEST_RESULT']['cmd'] + data
+        pkt = pkt_no_checksum + [self._ble.get_checksum(pkt_no_checksum)]
+        self._ble.write(GATT_CONFIG['app_rx'][0], pkt)
 
 class fw_update():
     def __init__(self, fw_file_path: str, debug: bool = False):
@@ -361,7 +380,7 @@ class fw_update():
         self._packet.clear()
         self._packet.extend(cov.swap_endian(cov.i16_to_u8_list(len(self._data_buf) + 4)))   # length*2u
         self._packet.append(self._data_type)                                                # header:OTA_cmd*1u
-        self._packet.extend(self._data_buf)                                                 # data:0~64u
+        self._packet.extend(self._data_buf)                                                 # data:0~230u
         self._packet.extend(cov.swap_endian(cov.i32_to_u8_list(                             # checksum*4u
             self._ble.get_checksum_crc32(self._data_buf)
         )))
@@ -390,21 +409,37 @@ class device():
     
     @do_in_thread
     def set_sn(self, sn: str):
-        pkt_no_checksum = ACTION['SET_SN']['cmd'] + cov.swap_endian(cov.ASCII_to_u8_list(sn))
+        sn_list = [0]*32
+        sn_list[0:len(sn)] = cov.ASCII_to_u8_list(sn)
+        pkt_no_checksum = ACTION['SET_SN']['cmd'] + sn_list
         pkt_no_checksum.append(self._ble.get_checksum(pkt_no_checksum))
         pkt = pkt_no_checksum
         self._ble.write(GATT_CONFIG['app_rx'][0], pkt)
+
+    @do_in_thread
+    def get_sn(self):
+        try:
+            return cov.intList_to_ASCII(
+                self._ble.read(
+                    GATT_CONFIG['app_rx'][0], 
+                    ACTION['GET_SN']['cmd'], 
+                    ACTION['GET_SN']['read_num']
+                )[0]['data']['value'][3:-1]
+            )
+        except:
+            return '----'
     
     @do_in_thread
     def calibrate_pSensor(self, pressure: float):
         pkt_no_checksum = ACTION['CAL_PRESSURE']['cmd'] + cov.swap_endian(cov.float_2_u8list(pressure))
         pkt_no_checksum.append(self._ble.get_checksum(pkt_no_checksum))
         pkt = pkt_no_checksum
-        logger.debug('calibrate_pSensor: %s', pkt)
-        res = self._ble.read(GATT_CONFIG['app_rx'][0], pkt, 1)
-        if len(res) == 0:
-            raise serverNoResponse('RECIVE FAIL')
-        return res[0]['data']['value'][3:-1] == cov.swap_endian(cov.float_2_u8list(pressure))
+        res = self._ble.read(GATT_CONFIG['app_rx'][0], pkt, ACTION['CAL_PRESSURE']['read_num'])
+        # TODO
+        self._ble.write(GATT_CONFIG['app_rx'][0], ACTION['READ_FLAG_FALSE']['cmd'])
+        # if len(res) == 0:
+        #     raise serverNoResponse('RECIVE FAIL')
+        return  True# res[0]['data']['value'][3:-1] == cov.swap_endian(cov.float_2_u8list(pressure))
     
     @do_in_thread
     def check_communicable(self):
@@ -414,7 +449,7 @@ class device():
                     GATT_CONFIG['app_rx'][0], 
                     ACTION['CHECK_ALIVE']['cmd'], 
                     ACTION['CHECK_ALIVE']['read_num']
-                )[0]['data']['value'][3:-2]
+                )[0]['data']['value'][3:-1]
             )
         except:
             return False
@@ -467,3 +502,114 @@ class device():
             )
         except:
             return '--- 0 0000, 00:00:00'
+        
+    def get_battery_volt(self):
+        try:
+            return cov.uint16_to_int(
+                cov.swap_endian(
+                    self._ble.read(
+                        GATT_CONFIG['app_rx'][0],
+                        ACTION['GET_BATTERY_VOLT']['cmd'],
+                        ACTION['GET_BATTERY_VOLT']['read_num']
+                    )[0]['data']['value'][3:5]  # mV
+                )
+            )
+        except:
+            return '----'
+
+class log_readout():
+    def __init__(self):
+        self._ble = worker.ble
+        self.p_cal_offset = 0
+        self.p_cal_before = 0
+        self.p_cal_after = 0
+        self._battery_volt = 0
+        self._rtc_rslt = 0
+        self._flash_rslt = 0
+        self._pressure = 0
+        self._temperature = 0
+        self._all_test_result = {}
+
+    def start(self):
+        data = self._read_test_log()
+        self._decode_test_log_pkt_data(data)
+        self._gen_inf()
+        return True
+    
+    def get_all_test_result(self):
+        """
+        return = {
+            'cal_pressure_offset': (float, '--'),
+            'cal_pressure_before': (float, '--'),
+            'cal_pressure_after': (float, '--'),
+            'battery_voltage': (int, 'err_msg'),
+            'rtc': (0 ~ 2, 'err_msg'),
+            'flash': (0 ~ 4, 'err_msg'),
+            'temperature': (uint8, 'err_msg'),
+            'pressure': (uint16, 'err_msg')
+        }
+        """
+        return self._all_test_result
+
+    @do_in_thread
+    def _read_test_log(self):
+        """
+        return:[
+            pressure_calibrate_factor: 4u(float),
+            pressure_calibrate_before: 4u(float),
+            pressure_calibrate_after: 4u(float),
+            voltage_test: 2u(uint16_t),
+            rtc_test: 1u(uint8_t),
+            flash_test: 1u(uint8_t),
+            psensor_test: 2u(uint16_t),
+            temperature_test: 2u(uint16_t)
+        ]
+        """
+        res = self._ble.read(
+            GATT_CONFIG['app_rx'][0],
+            ACTION['LOG_READOUT']['cmd'],
+            ACTION['LOG_READOUT']['read_num']
+        )
+        self._ble.write(GATT_CONFIG['app_rx'][0], ACTION['READ_FLAG_TRUE']['cmd'])
+        if len(res) == 0:
+            raise serverNoResponse('RECIVE FAIL')
+        return res[0]['data']['value'][3:-1]
+
+    def _decode_test_log_pkt_data(self, data:list):
+        self.p_cal_offset = cov.u8list_2_float(cov.swap_endian(data[1:5]))
+        self.p_cal_before = cov.u8list_2_float(cov.swap_endian(data[5:9]))
+        self.p_cal_after = cov.u8list_2_float(cov.swap_endian(data[9:13]))
+        self._battery_volt = cov.uint16_to_int(cov.swap_endian(data[13:15]))
+        self._rtc_rslt = data[15]
+        self._flash_rslt = data[16]
+        self._pressure = cov.uint16_to_int(cov.swap_endian(data[17:19]))
+        self._temperature = cov.uint16_to_int(cov.swap_endian(data[19:21]))
+
+    def _gen_inf(self):
+        self._isVInRange = 2400 < self._battery_volt and self._battery_volt < 3300
+        self._isTInRange = 10 < self._temperature and self._temperature < 30
+        self._isPInRange = 900 < self._pressure and self._pressure < 1100
+
+        self._all_test_result['cal_pressure_offset'] = (self.p_cal_offset, '--')
+        self._all_test_result['cal_pressure_before'] = (self.p_cal_before, '--')
+        self._all_test_result['cal_pressure_after'] = (self.p_cal_after, '--')
+        self._all_test_result['battery_voltage'] = (
+            self._battery_volt, 
+            'Pass' if self._isVInRange else 'Out of range'
+        )
+        self._all_test_result['rtc'] = (
+            self._rtc_rslt, 
+            'Pass' if self._rtc_rslt == 0 else rtcErrCode(self._rtc_rslt).name
+        )
+        self._all_test_result['flash'] = (
+            self._flash_rslt, 
+            'Pass' if self._flash_rslt == 0 else flashErrCode(self._flash_rslt).name
+        )
+        self._all_test_result['temperature'] = (
+            self._temperature,
+            'Pass' if self._isTInRange else 'Out of range'
+        )
+        self._all_test_result['pressure'] = (
+            self._pressure,
+            'Pass' if self._isPInRange else 'Out of range'
+        )

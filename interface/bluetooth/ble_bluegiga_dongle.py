@@ -42,12 +42,12 @@ class ble_bluegiga_dongle():
         logger.debug(f'ble-bluegiga scan ...')
         self.adapter.scan(timeout=timeout, scan_cb=scan_cb)
     
-    def connect(self, addr):
+    def connect(self, addr, addr_type):
         logger.debug(f'ble-bluegiga connect {addr}...')
         try:
             # self.adapter.start()
             # if CR5 address_type = pygatt.BLEAddressType.random
-            self.device = self.adapter.connect(addr, address_type=pygatt.BLEAddressType.public)
+            self.device = self.adapter.connect(address=addr, address_type=addr_type)
             logger.debug(f'ble-bluegiga connect status: {self.device != None}')
         except:
             logger.debug(f'ble-bluegiga connect ERROR !!!!!')

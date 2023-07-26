@@ -65,8 +65,8 @@ class GenericWorker(QThread):
     def run(self):
         while 1:
             if self.func_pool:
+                logger.debug(f'Do function: {self.func_pool[0]}')
                 self.func_pool[0]()
-                logger.debug(f'func_pool: {self.func_pool}')
                 if self.func_pool:
                     self.func_pool.popleft()
             else:

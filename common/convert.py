@@ -163,6 +163,7 @@ class Data_convertor():
         uint8_list = [byte for byte in bytes_data]
         uint8_list.reverse()
         return uint8_list
+
     def u8list_2_float(self, u8List: list):
         # Ex. [64, 73, 15, 208] => 3.14159
         u8List.reverse()

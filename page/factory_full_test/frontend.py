@@ -2,10 +2,6 @@
 import sys
 import os
 import time
-from enum import Enum
-import csv
-import serial
-import re
 from datetime import datetime
 sys.path.append(os.getcwd())
 
@@ -13,17 +9,10 @@ sys.path.append(os.getcwd())
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
-import openpyxl
-from openpyxl.styles import PatternFill
 
 #module
 from interface.interface_worker import  GenericWorker, do_in_thread
-from interface.bluetooth.bluetooth import dongle
-from common.convert import Data_convertor as cov
-from common.config import Config_creator
-from Script.Bluetooth.CR1_bt import test, device, fw_update
 from Error.err_cls import *
-from common.UI_object import Timer_generator
 import logging
 logger = logging.getLogger('factory_test')
 
@@ -39,11 +28,11 @@ do_in_thread = do_in_thread(worker)
 class frontend(QWidget, Ui_factory_test_func):
     def __init__(self):
         super(frontend, self).__init__()
-        self.setupUi(self)
+        worker.message.connect(self.show_GUI_message)
         self._gui_msg_sn = 0
 
     def set_scan_start(self):
-        self._set_Btn_disable(True)
+        self.set_Btn_disable(True)
         worker.UI.emit(lambda: self.Btn_scanDevice.setText("WAIT  5  SEC"))
 
     def set_devicelist(self, devices: list):
@@ -51,16 +40,16 @@ class frontend(QWidget, Ui_factory_test_func):
         worker.UI.emit(lambda: self._add_devices_in_listWidget(devices))
     
     def set_scan_end(self):
-        self._set_Btn_disable(False)
+        self.set_Btn_disable(False)
         worker.UI.emit(lambda: self.Btn_scanDevice.setText("SCAN  DEVICE"))
 
     def set_conn_start(self):
-        self._set_Btn_disable(True)
+        self.set_Btn_disable(True)
         self.show_GUI_message('CONN START')
         worker.UI.emit(lambda: self.Btn_connect.setText("CONNECTING ..."))
     
     def set_conn_end(self, is_conn: bool, fw_ver: str, fw_build_t: str, dev_addr: str):
-        self._set_Btn_disable(False)
+        self.set_Btn_disable(False)
         if is_conn:
             worker.UI.emit(lambda: self.label_currDevAddr.setText(dev_addr))
             worker.UI.emit(lambda: self.label_currFwVer.setText(fw_ver))
@@ -72,7 +61,7 @@ class frontend(QWidget, Ui_factory_test_func):
             self.show_GUI_message('CONN FAIL')
 
     def set_disconn_start(self):
-        self._set_Btn_disable(True)
+        self.set_Btn_disable(True)
 
     def set_disconn_end(self, is_conn: bool):
         if not is_conn:
@@ -80,17 +69,21 @@ class frontend(QWidget, Ui_factory_test_func):
             worker.UI.emit(lambda: self.label_currFwVer.setText('N/A'))
             worker.UI.emit(lambda: self.label_currFwTime.setText('N/A'))
             worker.UI.emit(lambda: self.Btn_connect.setText( "CONNECT >>"))
-        self._set_Btn_disable(False)
+        self.set_Btn_disable(False)
 
-    def get_select_dev_MAC_addr(self) -> str:
+    def get_select_dev_bt_inf(self):
+        """
+        @retrun: (MAC address(str), B.T. address type(str), device name(str))
+        """
         item_select = self.listWidget_deviceList.item(self.listWidget_deviceList.currentRow())
         if item_select == None:
             raise conditionShort('NO SELECT DEV')
-        addrs = item_select.text().split(' - ')[-1].split(']')[-1]
-        return addrs
+        name = item_select.text().split(' - ')[0]
+        addr_inf = item_select.text().split(' - ')[-1].split(']')
+        return addr_inf[-1], addr_inf[0], name
 
     def set_test_start(self):
-        self._set_Btn_disable(True)
+        self.set_Btn_disable(True)
         worker.UI.emit(lambda: self.Btn_devTest.setText('TESTING ...'))
 
     def set_test_end(self, is_test_finish: bool, test_result: dict, is_all_pass: bool):
@@ -98,7 +91,7 @@ class frontend(QWidget, Ui_factory_test_func):
             self.show_GUI_message('TEST END')
             self._show_test_result(test_result)
             self._add_test_history(is_all_pass)
-        self._set_Btn_disable(False)
+        self.set_Btn_disable(False)
         worker.UI.emit(lambda: self.Btn_devTest.setText("<<  COMPREHENSIVE TEST  >>"))
 
     def get_com_port_num(self) -> str:
@@ -114,12 +107,13 @@ class frontend(QWidget, Ui_factory_test_func):
         self.lineEdit_COMport.setReadOnly(False)
 
     def set_calPSensor_start(self):
-        self._set_Btn_disable(True)
+        self.set_Btn_disable(True)
         worker.UI.emit(lambda: self.Btn_Calibrate.setText('CALIBRATING ...'))
 
-    def set_calPSensor_end(self):
-        self._set_Btn_disable(False)
-        worker.UI.emit(lambda: self.Btn_Calibrate.setText(' Calibrate >>'))
+    def set_calPSensor_end(self, volt: int):
+        self.set_Btn_disable(False)
+        worker.UI.emit(lambda: self.Btn_Calibrate.setText('Calibrate >>'))
+        worker.UI.emit(lambda: self.label_currDevVolt.setText(str(volt)))
 
     def _show_test_result(self, test_result: dict):
         msg = 'Test result: \n'
@@ -162,19 +156,24 @@ class frontend(QWidget, Ui_factory_test_func):
             new_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.listWidget_deviceList.addItem(new_item)
     
-    def _set_Btn_disable(self, is_disable: bool):
+    def set_Btn_disable(self, is_disable: bool):
         worker.UI.emit(lambda: self.Btn_scanDevice.setDisabled(is_disable))
         worker.UI.emit(lambda: self.Btn_connect.setDisabled(is_disable))
         worker.UI.emit(lambda: self.Btn_devTest.setDisabled(is_disable))
         worker.UI.emit(lambda: self.Btn_updataFw.setDisabled(is_disable))
         worker.UI.emit(lambda: self.Btn_Calibrate.setDisabled(is_disable))
         worker.UI.emit(lambda: self.Btn_findWatch.setDisabled(is_disable))
+        worker.UI.emit(lambda: self.Btn_LogReadout.setDisabled(is_disable))
+        worker.UI.emit(lambda: self.Btn_enterSN.setDisabled(is_disable))
     
     def show_GUI_message(self, info: str):
+        if 'Device disconnect!' == info: # TODO
+            self.set_disconn_end(False)
+
         self._gui_msg_sn += 1
         mbox_disp_inf = {
             'NO SELECT DEV': 'Please select a device, before connect.',
-            'NO SN': 'Please enter the serial number of the device, before test begin.',
+            'NO SN': 'Please enter the serial number of the device, and try again.',
             'IN TESTING': 'The device is being tested, please wait for the test to finish and try again',
             'NO CONN': 'Please connect the device, and try again.',
             'START UPDATE FW': 'Start update firmware, please wait...',
@@ -213,3 +212,56 @@ class frontend(QWidget, Ui_factory_test_func):
         else:
             message = f'[{self._gui_msg_sn}]{time:<25}{info}'
         worker.UI.emit(lambda: self.textBrowser_guiMessage.append(message))
+
+    def get_fw_file_path(self) -> str:
+        path = self.textEdit_filePath.toPlainText()
+        if path == '':
+            raise conditionShort('NO FILE')
+        return path
+
+    def set_update_fw_start(self):
+        self.set_Btn_disable(True)
+        self.show_GUI_message('START UPDATE FW')
+        worker.UI.emit(lambda: self.Btn_updataFw.setText('UPDATING ...'))
+    
+    def set_update_fw_end(self):
+        self.set_Btn_disable(False)
+        worker.UI.emit(lambda: self.Btn_updataFw.setText('Finish Update'))
+        time.sleep(1.5)
+        worker.UI.emit(lambda: self.Btn_updataFw.setText('Update FW'))
+
+    def set_export_file_start(self):
+        self.set_Btn_disable(True)
+        self.show_GUI_message('START LOG READOUT')
+
+    def set_export_file_end(self):
+        self.set_Btn_disable(False)
+        self.show_GUI_message('LOG READOUT END')
+    
+    def get_input_sn(self) -> str:
+        sn = self.lineEdit_DevSN.text()
+        if sn == '':
+            raise conditionShort('NO SN')
+        return sn
+
+    def select_file(self):
+        filename, filetype = QFileDialog.getOpenFileName(self, "Open file", "./") # start path
+        logger.info('Select file: ' + filename + '.' + filetype)
+        worker.UI.emit(lambda: self.textEdit_filePath.setText(filename))
+
+    def set_write_sn_start(self):
+        self.set_Btn_disable(True)
+        self.show_GUI_message('WRITE SN')
+    
+    def set_write_sn_end(self):
+        self.set_Btn_disable(False)
+        self.show_GUI_message('WRITE SN END')
+
+    def _show_pass_logo(self):
+        pass
+    
+    def _show_fail_logo(self):
+        pass
+
+    def _show_wait_logo(self):
+        pass

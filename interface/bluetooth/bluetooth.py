@@ -132,9 +132,9 @@ class Bluetooth_LE(QThread):
     def check_timeout(self):
         return time.time() - self.connect_mark_time > self.timeout
 
-    def connect(self, addr):
+    def connect(self, addr, addr_type=pygatt.BLEAddressType.random):
         if self.client != None and not self.is_connect():
-            self.client.connect(addr)
+            self.client.connect(addr, addr_type)
             self.connect_mark_time = time.time()
             
     def is_connect(self):
