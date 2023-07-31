@@ -35,7 +35,7 @@ if getattr(sys, 'frozen', None):
 else:
     log_file_path = os.path.join(os.getcwd(), 'log', 'logging.conf')
 fileConfig(log_file_path)
-logger = logging.getLogger()
+logger = logging.getLogger('rotatingFileLogger')
 logger.setLevel(0)
 
 target_name = 'CREST-CR5'

@@ -33,7 +33,8 @@ class Config_creator():
     
     def add_config(self, page, key, value):
         self.check_or_create_page(page)
-        self.config[page][key] = value
+        if key not in self.config[page]:
+            self.config[page][key] = value
         with open(self.config_path, 'w') as f:
             json.dump(self.config, f, indent=4)
 

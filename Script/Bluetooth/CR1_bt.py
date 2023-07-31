@@ -5,6 +5,7 @@ Ex. gatt config, cmd, etc.
 """
 from enum import Enum
 from interface.interface_worker import  GenericWorker, do_in_thread
+from page.factory_full_test.msg import NotifyType
 from common.convert import Data_convertor as cov
 from Error.err_cls import *
 import logging
@@ -30,7 +31,7 @@ ACTION = {
     # DEVICE
     'WHERE_MY_WATCH'    :{'cmd': [0xA0, 0x00, 0x00, 0x00, 0xFF],    'read_num': 1},
     'GET_FW_VER'        :{'cmd': [0xA0, 0x01, 0x01, 0x5A],          'read_num': 1},
-    'SN'            :{'cmd': [0xA0, 0x02, 0x01, 0x65],          'read_num': 1},
+    'SN'                :{'cmd': [0xA0, 0x02, 0x01, 0x65],          'read_num': 1},
     'CHECK_ALIVE'       :{'cmd': [0xA0, 0x04, 0x01, 0x1B],          'read_num': 1},
     # EOPI TEST
     'GET_TEMPERATURE'   :{'cmd': [0xD0, 0x03, 0x01, 0x17],          'read_num': 1},
@@ -44,8 +45,10 @@ ACTION = {
     'CAL_PRESSURE'      :{'cmd': [0xD0, 0x11, 0x00],                'read_num': 1},
     'LOG_READOUT'       :{'cmd': [0xD0, 0x12, 0x01, 0x55],          'read_num': 1},
     'W_TEST_RESULT'     :{'cmd': [0xD0, 0x12, 0x00],                'read_num': 0},
-    'READ_FLAG_TRUE'    :{'cmd': [0xD0, 0x13, 0x00, 0x01, 0xD5],    'read_num': 0},
-    'READ_FLAG_FALSE'   :{'cmd': [0xD0, 0x13, 0x00, 0x00, 0xD2],    'read_num': 0},
+    'TRUE_READ_FLAG'    :{'cmd': [0xD0, 0x13, 0x00, 0x01, 0xD5],    'read_num': 1},
+    'FALSE_READ_FLAG'   :{'cmd': [0xD0, 0x13, 0x00, 0x00, 0xD2],    'read_num': 1},
+    'GET_READ_FLAG'     :{'cmd': [0xD0, 0x13, 0x01, 0x40],          'read_num': 1},
+    'GET_P_AFTER_CAL'   :{'cmd': [0xD0, 0x14, 0x01, 0x2B],          'read_num': 1},
 }
 
 class eAmotaCommand(Enum):
@@ -169,12 +172,14 @@ class test():
     def _verify_pressure(self):
         res = self._ble.read(
             GATT_CONFIG['app_rx'][0],
-            ACTION['GET_PRESSURE']['cmd'],
-            ACTION['GET_PRESSURE']['read_num']
+            ACTION['GET_P_AFTER_CAL']['cmd'],
+            ACTION['GET_P_AFTER_CAL']['read_num']
         )
         if len(res) == 0:
             raise serverNoResponse('TEST5 FAIL')
-        self._pressure = cov.uint16_to_int(cov.swap_endian(res[0]['data']['value'][3:5]))
+        print(cov.swap_endian(res[0]['data']['value'][3:7]))
+        self._pressure = cov.u8list_2_float(cov.swap_endian(res[0]['data']['value'][3:7]))
+        self._pressure = round(self._pressure, 1)
         self._isPInRange = 900 < self._pressure and self._pressure < 1100
 
     @do_in_thread
@@ -195,13 +200,58 @@ class test():
         data.extend(cov.i16_to_u8_list(self._battery_volt))
         data.append(self._rtc_rslt)
         data.append(self._flash_rslt)
-        data.extend(cov.i16_to_u8_list(self._pressure))
+        data.extend(cov.i16_to_u8_list(int(round(self._pressure))))
         data.extend(cov.i16_to_u8_list(self._temperature))
         pkt_no_checksum = ACTION['W_TEST_RESULT']['cmd'] + data
         pkt = pkt_no_checksum + [self._ble.get_checksum(pkt_no_checksum)]
         self._ble.write(GATT_CONFIG['app_rx'][0], pkt)
 
+class calibrate_pressure():
+    """
+    Module for calibrating pressure
+    """
+    def __init__(self, real_pressure: float):
+        self._ble = worker.ble
+        self.pressure = real_pressure
+
+    @do_in_thread
+    def start(self):
+        """
+        @return: p(before cal), p(after cal), p(cal factor)
+        """
+        before, after, factor = self._calibrate_pSensor()
+        self._set_read_flag_false()
+        return before, after, factor
+    
+    @do_in_thread
+    def _calibrate_pSensor(self):
+        pkt_no_checksum = ACTION['CAL_PRESSURE']['cmd'] + cov.swap_endian(cov.float_2_u8list(self.pressure))
+        pkt_no_checksum.append(self._ble.get_checksum(pkt_no_checksum))
+        pkt = pkt_no_checksum
+        res = self._ble.read(GATT_CONFIG['app_rx'][0], pkt, ACTION['CAL_PRESSURE']['read_num'])
+        if len(res) == 0:
+            raise serverNoResponse('RECIVE FAIL')
+        p_factor = round(cov.u8list_2_float(cov.swap_endian(res[0]['data']['value'][3:7])), 1)
+        p_before = round(cov.u8list_2_float(cov.swap_endian(res[0]['data']['value'][7:11])), 1)
+        p_after = round(cov.u8list_2_float(cov.swap_endian(res[0]['data']['value'][11:15])), 1)
+        return  p_before, p_after, p_factor
+    
+    @do_in_thread
+    def _set_read_flag_false(self):
+        res = self._ble.read(
+            GATT_CONFIG['app_rx'][0], 
+            ACTION['FALSE_READ_FLAG']['cmd'], 
+            ACTION['FALSE_READ_FLAG']['read_num']
+        )
+        if len(res) == 0:
+            raise serverNoResponse('RECIVE FAIL, Set watch log read out flag fail')
+        if (res[0]['data']['value'][3]!=0):
+            raise serverNoResponse('Set watch log read out flag fail')
+
 class fw_update():
+    """
+    Module for OTA firmware update
+    """
     def __init__(self, fw_file_path: str, debug: bool = False):
         self._ble = worker.ble
         self._show_percent_cnt = 0
@@ -256,10 +306,10 @@ class fw_update():
             next_packet_start_idx = 0 # Point to the first byte of the next packet.
             packet_serial_number = 0
             while next_packet_start_idx < len(self._data_will_be_send):
-                if packet_serial_number % 70 == 0:
-                    worker.message.emit(
-                        f'OTA update: {round(next_packet_start_idx/len(self._data_will_be_send)*100, 1)} %'
-                    )
+                worker.message.emit([
+                    NotifyType.ACTION.value,
+                    f'otaProgressBar{round(next_packet_start_idx/len(self._data_will_be_send)*100)}'
+                ])
                 self._split_data(next_packet_start_idx)
                 self._generate_pkt()
                 self._send_pkt()
@@ -271,6 +321,7 @@ class fw_update():
                     len(self._data_buf), 
                     len(self._data_will_be_send) - next_packet_start_idx
                 )
+                time.sleep(0.02)
                 if self._debug: 
                     if self._decode_reply_cmd():
                         continue
@@ -294,7 +345,12 @@ class fw_update():
             logger.warning('Invalid packed firmware length.')
             return False
         
-        self._fileSize = ((fw_header_read[11] & 255) << 24) + ((fw_header_read[10] & 255) << 16) + ((fw_header_read[9] & 255) << 8) + (fw_header_read[8] & 255)
+        self._fileSize = (
+            ((fw_header_read[11] & 255) << 24) 
+            + ((fw_header_read[10] & 255) << 16) 
+            + ((fw_header_read[9] & 255) << 8) 
+            + (fw_header_read[8] & 255)
+        )
         logger.info('File size = ' + str(self._fileSize) + '.')
         logger.debug(f'Fw header size = {len(fw_header_read)} bytes.')
         # print('Send fw header ' , fw_header_read, '.')
@@ -329,16 +385,14 @@ class fw_update():
         logger.info('Send firmware verify cmd.')
         self._data_type = eAmotaCommand.AMOTA_CMD_FW_VERIFY.value
         self._data_will_be_send = bytearray([])
-        if self._send_OTA_packet():
-            return True
+        return self._send_OTA_packet()
         
     @do_in_thread
     def _send_reset_cmd(self) -> bool:
         logger.info('Send firmware reset cmd.')
         self._data_type = eAmotaCommand.AMOTA_CMD_FW_RESET.value
         self._data_will_be_send = bytearray([])
-        if self._send_OTA_packet():
-            return True
+        return self._send_OTA_packet()
             
     def _decode_reply_cmd(self):
         try:
@@ -375,6 +429,7 @@ class fw_update():
                 return False
         except:
             logger.warning('No reply or reply out time.')
+            return False
     
     def _generate_pkt(self):
         self._packet.clear()
@@ -390,6 +445,8 @@ class fw_update():
         if (self._data_type == eAmotaCommand.AMOTA_CMD_FW_DATA.value and not self._debug):
             self._ble.write(GATT_CONFIG['ota_rx'][0], self._packet)
             time.sleep(0.04)
+        elif (self._data_type == eAmotaCommand.AMOTA_CMD_FW_DATA.value and not self._debug):
+            self._reply = self._ble.read(GATT_CONFIG['ota_rx'][0], self._packet, 1)
         else:
             self._reply = self._ble.read(GATT_CONFIG['ota_rx'][0], self._packet, 1)
     
@@ -419,27 +476,16 @@ class device():
     @do_in_thread
     def get_sn(self):
         try:
-            return cov.intList_to_ASCII(
+            sn = cov.intList_to_ASCII(
                 self._ble.read(
                     GATT_CONFIG['app_rx'][0], 
                     ACTION['GET_SN']['cmd'], 
                     ACTION['GET_SN']['read_num']
                 )[0]['data']['value'][3:-1]
             )
+            return sn.rstrip('\x00')
         except:
             return '----'
-    
-    @do_in_thread
-    def calibrate_pSensor(self, pressure: float):
-        pkt_no_checksum = ACTION['CAL_PRESSURE']['cmd'] + cov.swap_endian(cov.float_2_u8list(pressure))
-        pkt_no_checksum.append(self._ble.get_checksum(pkt_no_checksum))
-        pkt = pkt_no_checksum
-        res = self._ble.read(GATT_CONFIG['app_rx'][0], pkt, ACTION['CAL_PRESSURE']['read_num'])
-        # TODO
-        self._ble.write(GATT_CONFIG['app_rx'][0], ACTION['READ_FLAG_FALSE']['cmd'])
-        # if len(res) == 0:
-        #     raise serverNoResponse('RECIVE FAIL')
-        return  True# res[0]['data']['value'][3:-1] == cov.swap_endian(cov.float_2_u8list(pressure))
     
     @do_in_thread
     def check_communicable(self):
@@ -455,17 +501,17 @@ class device():
             return False
         
     @do_in_thread
-    def find_watch(self) -> list:
+    def find_watch(self):
         try:
-            return(
-                self._ble.read(
-                    GATT_CONFIG['app_rx'][0], 
-                    ACTION['WHERE_MY_WATCH']['cmd'], 
-                    ACTION['WHERE_MY_WATCH']['read_num']
-                )[0]['data']['value']
+            res = self._ble.read(
+                GATT_CONFIG['app_rx'][0], 
+                ACTION['WHERE_MY_WATCH']['cmd'], 
+                ACTION['WHERE_MY_WATCH']['read_num']
             )
+            rtn = res[0]['data']['value'][3:]
         except:
-            return [0, 0, 0, 0, 0, 0, 0, 0]
+            rtn = []
+        return rtn
     
     @do_in_thread
     def subscribe_app_uuid(self):
@@ -520,14 +566,17 @@ class device():
 class log_readout():
     def __init__(self):
         self._ble = worker.ble
-        self.p_cal_offset = 0
-        self.p_cal_before = 0
-        self.p_cal_after = 0
-        self._battery_volt = 0
-        self._rtc_rslt = 0
-        self._flash_rslt = 0
-        self._pressure = 0
-        self._temperature = 0
+        self._factory_calibration_xt = {
+            'is_logreadout' :False,
+            'p_cal_offset' :0,
+            'p_cal_before' :0,
+            'p_cal_after' :0,
+            'battery_voltage_test' :0,
+            'rtc_test' :0,
+            'flash_test' :0,
+            'pressure_test' :0,
+            'temperature_test' :0,
+        }
         self._all_test_result = {}
 
     def start(self):
@@ -570,46 +619,86 @@ class log_readout():
             ACTION['LOG_READOUT']['cmd'],
             ACTION['LOG_READOUT']['read_num']
         )
-        self._ble.write(GATT_CONFIG['app_rx'][0], ACTION['READ_FLAG_TRUE']['cmd'])
         if len(res) == 0:
             raise serverNoResponse('RECIVE FAIL')
+        if (self._ble.read(
+                GATT_CONFIG['app_rx'][0], 
+                ACTION['TRUE_READ_FLAG']['cmd'], 
+                ACTION['TRUE_READ_FLAG']['read_num']
+            )[0]['data']['value'][3] != 1):
+            raise serverNoResponse('Set watch log read out flag fail')
         return res[0]['data']['value'][3:-1]
 
     def _decode_test_log_pkt_data(self, data:list):
-        self.p_cal_offset = cov.u8list_2_float(cov.swap_endian(data[1:5]))
-        self.p_cal_before = cov.u8list_2_float(cov.swap_endian(data[5:9]))
-        self.p_cal_after = cov.u8list_2_float(cov.swap_endian(data[9:13]))
-        self._battery_volt = cov.uint16_to_int(cov.swap_endian(data[13:15]))
-        self._rtc_rslt = data[15]
-        self._flash_rslt = data[16]
-        self._pressure = cov.uint16_to_int(cov.swap_endian(data[17:19]))
-        self._temperature = cov.uint16_to_int(cov.swap_endian(data[19:21]))
+        try:
+            self._factory_calibration_xt['is_logreadout'] = data[0]
+            self._factory_calibration_xt['p_cal_offset'] = round(cov.u8list_2_float(cov.swap_endian(data[1:5])), 1)
+            self._factory_calibration_xt['p_cal_before'] = round(cov.u8list_2_float(cov.swap_endian(data[5:9])), 1)
+            self._factory_calibration_xt['p_cal_after'] = round(cov.u8list_2_float(cov.swap_endian(data[9:13])), 1)
+            self._factory_calibration_xt['battery_voltage_test'] = cov.uint16_to_int(cov.swap_endian(data[13:15]))
+            self._factory_calibration_xt['rtc_test'] = data[15]
+            self._factory_calibration_xt['flash_test'] = data[16]
+            self._factory_calibration_xt['pressure_test'] = cov.uint16_to_int(cov.swap_endian(data[17:19]))
+            self._factory_calibration_xt['temperature_test'] = cov.uint16_to_int(cov.swap_endian(data[19:21]))
+        except:
+            raise Exception
 
     def _gen_inf(self):
-        self._isVInRange = 2400 < self._battery_volt and self._battery_volt < 3300
-        self._isTInRange = 10 < self._temperature and self._temperature < 30
-        self._isPInRange = 900 < self._pressure and self._pressure < 1100
+        self._isVInRange = (
+            2400 < self._factory_calibration_xt['battery_voltage_test'] 
+            and self._factory_calibration_xt['battery_voltage_test'] < 3300
+        )
+        self._isTInRange = (
+            10 < self._factory_calibration_xt['temperature_test'] 
+            and self._factory_calibration_xt['temperature_test'] < 30
+        )
+        self._isPInRange = (
+            900 < self._factory_calibration_xt['pressure_test'] 
+            and self._factory_calibration_xt['pressure_test'] < 1100
+        )
 
-        self._all_test_result['cal_pressure_offset'] = (self.p_cal_offset, '--')
-        self._all_test_result['cal_pressure_before'] = (self.p_cal_before, '--')
-        self._all_test_result['cal_pressure_after'] = (self.p_cal_after, '--')
+        self._all_test_result['cal_pressure_offset'] = (
+            self._factory_calibration_xt['p_cal_offset'], '--'
+        )
+        self._all_test_result['cal_pressure_before'] = (
+            self._factory_calibration_xt['p_cal_before'], '--'
+        )
+        self._all_test_result['cal_pressure_after'] = (
+            self._factory_calibration_xt['p_cal_after'], '--'
+        )
         self._all_test_result['battery_voltage'] = (
-            self._battery_volt, 
+            self._factory_calibration_xt['battery_voltage_test'], 
             'Pass' if self._isVInRange else 'Out of range'
         )
         self._all_test_result['rtc'] = (
-            self._rtc_rslt, 
-            'Pass' if self._rtc_rslt == 0 else rtcErrCode(self._rtc_rslt).name
+            self._factory_calibration_xt['rtc_test'], 
+            'Pass' 
+            if self._factory_calibration_xt['rtc_test'] == 0 else 
+            rtcErrCode(self._factory_calibration_xt['rtc_test']).name
         )
         self._all_test_result['flash'] = (
-            self._flash_rslt, 
-            'Pass' if self._flash_rslt == 0 else flashErrCode(self._flash_rslt).name
+            self._factory_calibration_xt['flash_test'], 
+            'Pass' 
+            if self._factory_calibration_xt['flash_test'] == 0 else 
+            flashErrCode(self._factory_calibration_xt['flash_test']).name
         )
         self._all_test_result['temperature'] = (
-            self._temperature,
+            self._factory_calibration_xt['temperature_test'],
             'Pass' if self._isTInRange else 'Out of range'
         )
         self._all_test_result['pressure'] = (
-            self._pressure,
+            self._factory_calibration_xt['pressure_test'],
             'Pass' if self._isPInRange else 'Out of range'
+        )
+
+    def is_read_out(self):
+        """
+        @return 0: not read out, 1: read out
+        """
+        return (
+            self._ble.read(
+                GATT_CONFIG['app_rx'][0], 
+                ACTION['GET_READ_FLAG']['cmd'], 
+                ACTION['GET_READ_FLAG']['read_num']
+            )[0]['data']['value'][3]
         )

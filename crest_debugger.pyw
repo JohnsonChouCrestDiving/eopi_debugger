@@ -4,9 +4,8 @@ import os
 sys.path.append(os.getcwd())
 
 #third party
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QMainWindow, QApplication
 
 #module
 from interface.interface_worker import  GenericWorker, do_in_thread
@@ -29,7 +28,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         from page.factory_full_test.main import factory_test_func
         self.full_test = factory_test_func()
         self.full_test_Layout.addWidget(self.full_test)
-        self.guiwindowtitle = r'EOPI debugger V02.00.00'
+        self.guiwindowtitle = r'EOPI debugger V02.01.00'
 
         if Eng_mode:
             if factory_test_func_use:
@@ -39,7 +38,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.tabWidget.setCurrentIndex(0)
         self.setWindowTitle(self.guiwindowtitle)
-        self.setWindowIcon(QIcon('cl_icon.ico'))
+        self.windoe_icon = QIcon(r'picture\EOPI_icon.jpg')
+        self.setWindowIcon(self.windoe_icon)
         if __name__ == '__main__':
             worker.UI.connect(self.set_UI)
         

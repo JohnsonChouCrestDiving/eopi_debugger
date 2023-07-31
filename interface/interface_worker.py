@@ -1,5 +1,5 @@
 import time
-from collections import namedtuple, deque
+from collections import deque
 from PyQt5.QtCore import QThread, pyqtSignal
 import threading
 import functools
@@ -49,7 +49,7 @@ def do_in_thread(worker):
 class GenericWorker(QThread):
     hrMonitor           = pyqtSignal(dict)
     UI                  = pyqtSignal(object)
-    message             = pyqtSignal(str)
+    message             = pyqtSignal(list) # Ex.[NotifyType, message]
 
     __instance = None
     def __new__(cls):

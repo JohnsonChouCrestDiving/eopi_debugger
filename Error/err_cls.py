@@ -5,7 +5,7 @@ class serverNoResponse(Exception):
     def __str__(self):
         return self.msg
     
-class serverNoConnect(Exception):
+class noConnServer(Exception):
     def __init__(self):
         super().__init__()
 
@@ -15,4 +15,8 @@ class conditionShort(Exception):
         self.msg = whatCondition
     def __str__(self):
         return self.msg
+    
+class serverDisconn(Exception):
+    def __init__(self):
+        super().__init__()
     

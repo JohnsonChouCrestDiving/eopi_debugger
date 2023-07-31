@@ -47,7 +47,6 @@ class BleuIo(object):
                     else:
                         pass
                 retry_count += 1
-            time.sleep(2)
 
             try:
                 self._serial = serial.Serial(
@@ -1667,7 +1666,7 @@ class BleuIo(object):
         :return: string[]
         """
         self.__at_gattcwriteb(uuid, data)
-        time.sleep(0.5)
+        time.sleep(0.7)
         self.__set_rx_state("rx_ready")
         return self.rx_response
 
