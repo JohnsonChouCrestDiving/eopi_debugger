@@ -1,17 +1,14 @@
 import sys,os
-import threading
-import functools
 import re
 import time
 import logging
 
 from .bleuio.bleuio_lib.bleuio_funcs import BleuIo
 from collections import defaultdict
-from datetime import datetime
 from logging.config import fileConfig
 from binascii import unhexlify
 from common.convert import Data_convertor as cov
-from pygatt.backends import BLEBackend, Characteristic, BLEAddressType
+from pygatt.backends import BLEAddressType
 
 
 def resource_path(relative):
@@ -28,7 +25,7 @@ if getattr(sys, 'frozen', None):
 else:
     log_file_path = os.path.join(os.getcwd(), 'log', 'logging.conf')
 fileConfig(log_file_path)
-logger = logging.getLogger()
+logger = logging.getLogger('rotatingFileLogger')
 logger.setLevel(0)
 cov = cov()
 
@@ -46,7 +43,7 @@ class ble_bleuio_dongle():
     # defult: intv_min=30ms, intv_max=30ms, slave_latency=0, sup_timeout=1000ms
         if self.is_connect():
             logger.info('ble-bleuio disconnected previous connection...')
-            self._adapter.at_gapdisconnect()
+            self.disconnect()
         
         if self._get_GAP_role() != 'Central role':
             self._set_in_central_role()
@@ -70,12 +67,16 @@ class ble_bleuio_dongle():
         return rx_res
 
     def _get_GAP_role(self):
-        while 1:
+        GAP_role = ''
+        try:
             rx_res = self._adapter.at_gapstatus()
             elements = rx_res[0].split('\r\n')
-            if elements.__len__() > 1: break
 
-        GAP_role = elements[1] # 取出需要的元素
+            for element in elements:
+                if 'role' in element:
+                    GAP_role = element # 取出需要的元素
+        except: pass
+
         logger.debug(f'ble-bleuio GAP role: {GAP_role}')
         return GAP_role
         """
@@ -91,27 +92,35 @@ class ble_bleuio_dongle():
         """
     
     def is_connect(self):
-        return self._peripheral_GATT_table.__len__() > 0
         # rx_response of bleuio dongle return isn't safe, so use GATT table to check connected status
-        # while 1:
-        #     rx_res = self._adapter.at_gapstatus()
-        #     elements = rx_res[0].split('\r\n')
-        #     if elements.__len__() > 3: break
-
-        # connected_status = elements[3] # 取出需要的元素
-        # if connected_status == 'Connected':
-        #     logger.info('ble-bleuio already connected peripheral')
-        # else:
-        #     logger.warning('ble-bleuio not connected peripheral')
-        # return connected_status == 'Connected'
-    
-    def _is_advertising(self):
-        while 1:
+        # return self._peripheral_GATT_table.__len__() > 0
+        connected_status = ''
+        try:
             rx_res = self._adapter.at_gapstatus()
             elements = rx_res[0].split('\r\n')
-            if elements.__len__() > 5: break
 
-        advertising_status = elements[5] # 取出需要的元素
+            for element in elements:
+                if 'Conn' in element:
+                    connected_status = element # 取出需要的元素
+        except: pass
+
+        if connected_status == 'Connected':
+            logger.info('ble-bleuio already connected peripheral')
+        else:
+            logger.warning('ble-bleuio not connected peripheral')
+        return connected_status == 'Connected'
+    
+    def _is_advertising(self):
+        advertising_status = ''
+        try:
+            rx_res = self._adapter.at_gapstatus()
+            elements = rx_res[0].split('\r\n')
+
+            for element in elements:
+                if 'Advertis' in element:
+                    advertising_status = element # 取出需要的元素
+        except: pass
+
         logger.debug(f'ble-bleuio is {advertising_status}')
         return advertising_status == 'Advertising'
     
@@ -133,7 +142,7 @@ class ble_bleuio_dongle():
     def send_command(self, uuid:str, cmd_list:list, is_read: bool):
         handle = self._get_handle(uuid)
         cmd = cov.u8_list_to_hexstr(cmd_list)
-        logger.info(f'ble-bleuio send command: handle:{handle}, command:{cmd}')
+        logger.info(f'ble-bleuio send command: handle:{handle}, command:{cmd} ({cmd_list})')
 
         try:
             if handle is None:
@@ -156,9 +165,9 @@ class ble_bleuio_dongle():
     def disconnect(self):
         logger.info(f'ble-bleuio disconnect...')
         try:
-            rx_res = self._adapter.at_gapdisconnect()
-            logger.info('ble-bleuio disconnect success')
+            rx_res = self._adapter.at_gapdisconnectall()
             self._peripheral_GATT_table = []
+            logger.info('ble-bleuio disconnect success')
         except:
             logger.error(f'ble-bleuio disconnect fail: {rx_res}')
         # self._adapter.stop_daemon()
@@ -167,21 +176,33 @@ class ble_bleuio_dongle():
     def _get_handle(self, uuid:str) -> str:
         uuid = uuid.lower()
         handle = None
-        logger.debug(f'ble-bleuio get {uuid} handle...')
 
+        debug_cnt = 0
+        while len(self._peripheral_GATT_table) == 0 and debug_cnt < 3:
+            self._generate_GATT_table()
+            debug_cnt += 1
+        
         for item in self._peripheral_GATT_table:
             if item[2] == uuid:
                 handle = item[0]
+                logger.debug(f'ble-bleuio get {uuid} handle: {item[0]}')
                 break
 
-        if handle is not None:
-            logger.debug(f'ble-bleuio get {uuid} handle: {item[0]}')
-            return handle
-        else:
-            logger.warning(f'ble-bleuio No found characteristic matching {uuid}')
-            return None
+        if handle == None:
+            logger.warning(f'ble-bleuio No found characteristic matching {uuid}, try again...')
+            ## try again ##
+            self._peripheral_GATT_table.clear()
+            self._generate_GATT_table()
+            for item in self._peripheral_GATT_table:
+                if item[2] == uuid:
+                    handle = item[0]
+                    logger.debug(f'ble-bleuio get {uuid} handle: {item[0]}')
+                    break
+            if handle == None:
+                logger.warning(f'ble-bleuio No found characteristic matching {uuid}')
+        return handle
     
-    def _generate_GATT_table(self, rx_res = None):
+    def _generate_GATT_table(self, simulat_dat = None):
         """
         Generate the GATT table of the connected peripheral.
         Example:
@@ -223,7 +244,8 @@ class ble_bleuio_dongle():
         # 原始字符串
         logger.debug(f'ble-bleuio get all services...')
         if len(self._adapter.atds(True)) != 0:
-            s = ''.join(self._adapter.at_get_services() if rx_res is None else rx_res)
+            s = ''.join(self._adapter.at_get_services() if simulat_dat is None else simulat_dat)
+            time.sleep(0.1)
 
         # 使用正則表達式將字符串轉換為list
         lst = re.findall(r'\t(\d+)\s+([\w-]+)\s+(.*?)\s*$', s, re.M)
@@ -265,11 +287,14 @@ class ble_bleuio_dongle():
             logger.error(f'ble-bleuio enable notify {uuid} status: ERROR !!!')
 
     def scan(self, timeout, scan_cb=None):
+        if self._get_GAP_role() != 'Central role':
+            self._set_in_central_role()
         logger.info(f'ble-bleuio scan ...')
         self._adapter.at_gapscan(timeout=timeout)
-        time.sleep(3)
+        devices = self._process_scan_response()
         logger.debug("stop scan")
         self._adapter.stop_scan()
+        scan_cb(devices, 'ff:ff:ff:ff:ff:ff', 0) # The last two parameters will be put into addr and pecket_type in bluegiga api
 
     def _process_notification_header(self, data: list):
         header_info = data.split(' ')
@@ -289,45 +314,40 @@ class ble_bleuio_dongle():
         return (indi_or_noti_handle, conn_idx, handle, length)
 
     def _receive_notification(self, cwriteb_rx_res: list):
+        """
+        把整個list用join()變成同一個字串,再用\r\n分割,然後再去分析
+        """
         try:
-            if cwriteb_rx_res.__len__() == 2:
-                elements = cwriteb_rx_res[1].split('\r\n')
-                for i in range (len(elements)):
-                    if elements[i] is None:
+            if len(cwriteb_rx_res) != 0:
+                data_first_process = ''.join(cwriteb_rx_res)
+                data_second_process = data_first_process.split('\r\n')
+                for data in data_second_process:
+                    if data == '' or data_second_process.index(data)<3:
                         continue
-                    elif i % 6 == 3:
+                    elif ('notification' in data 
+                          or 'indication' in data):
                         handle_type, conn_idx_in_bleuio, handle, variable_length = (
-                            self._process_notification_header(elements[i])
+                            self._process_notification_header(data)
                         )
-                    elif i % 6 == 5:
-                        Value_received = elements[i].split(':')[1].strip()
-                    elif i != 0 and i % 6 == 0:
-                        Hex = elements[i].split(':')[1].strip()
-                    elif i != 1 and i % 6 == 1:
-                        msg_size = elements[i].split(':')[1].strip()
+                    elif 'Value received' in data:
+                        Value_received = data.split(':')[1].strip()
+                    elif 'Hex' in data:
+                        Hex = data.split(':')[1].strip()
                         if handle in self._callbacks:
                             for callback in self._callbacks[handle]:
                                 callback(int(handle), list(unhexlify(Hex[2:])))
-            elif cwriteb_rx_res.__len__() == 1: # 有時候會只有一個元素(機率性發生)
-                elements = cwriteb_rx_res[0].split('\r\n')
-                for i in range (len(elements)):
-                    if i < 6 or elements[i] is None:
-                        continue
-                    elif i % 6 == 0:
-                        handle_type, conn_idx_in_bleuio, handle, variable_length = (
-                            self._process_notification_header(elements[i])
-                        )
-                    elif i % 6 == 2:
-                        Value_received = elements[i].split(':')[1].strip()
-                    elif i % 6 == 3:
-                        Hex = elements[i].split(':')[1].strip()
-                    elif i % 6 == 4:
-                        msg_size = elements[i].split(':')[1].strip()
-                        if handle in self._callbacks:
-                            for callback in self._callbacks[handle]:
-                                callback(int(handle), list(unhexlify(Hex[2:])))
-        except:
-            logger.error(f'ble-bleuio convert cwriteb() Rx response fail,cwriteb_rx_res: {cwriteb_rx_res}')
+                    elif 'Size' in data:
+# TODO: cmd: 0xD0130000D2的回覆有Size資訊，但不知道為甚麼不會進來這裡，所以把呼叫callback的步驟放在Hex
+                        msg_size = data.split(':')[1].strip()
+                    elif 'completed' in data:
+                        send_status = data.split('status=')[1]
+                    else: pass
+        except Exception as e:
+            logger.error(
+                f'ble-bleuio convert cwriteb() Rx response fail.\
+                \nreason: {e}.\
+                \ncwriteb_rx_res: {cwriteb_rx_res}'
+            )
         """
             The cwriteb_rx_res data example:
             [
@@ -357,6 +377,65 @@ class ble_bleuio_dongle():
                 Size: 3\r\n'
             ]
             """
+
+    def _process_scan_response(self):
+        """
+        return = {
+            (str)address: {name: (str)name, address: (str)address, rssi: (int)rssi, packet_data: None},
+            ...
+        }
+        """
+        rtn = {}
+        devces = ''.join(self._adapter.rx_scanning_results[1:]).split('\r\n\r\n')
+        try:
+            for dev_data in devces:
+                data_items  = dev_data.split(' ')
+                # This information is only fetched if the device has a name.
+                # Device name may include spaces.
+                name = dev_data.split("(")[1].split(")")[0] if len(data_items) > 6 else 'Unknown'
+
+                if data_items[2] not in rtn.keys():
+                    rtn[data_items[2]] = {
+                        'name': name, 
+                        'address': data_items[2], 
+                        'rssi': int(data_items[5]), 
+                        'pkt_dat': None
+                    }
+                else:
+                    if rtn[data_items[2]]['name'] != name:
+                        rtn[data_items[2]]['name'] = name
+                    if rtn[data_items[2]]['rssi'] != int(data_items[5]):
+                        rtn[data_items[2]]['rssi'] = int(data_items[5])
+                logger.debug(
+                    f'Received a scan response from {data_items[2]} with rssi={int(data_items[5])} dBM'
+                )
+        except:
+            logger.error(f'ble-bleuio convert scan response fail, dev_data: {dev_data}')
+            
+        return rtn
+        """
+        The rx_scanning_results example:
+        [
+            '\r\r\nSCANNING...\r\n', 
+            '\r\n[01] Device: [1]15:D8:29:9B:89:6F  RSSI: -44\r\n', 
+            '\r\n[02] Device: [1]24:C2:BB:B8:21:A0  RSSI: -78\r\n\r\n[03] Device: [1]0F:36:2A:F9:C2:93  RSSI: -71\r\n\r\n[04] Device: [1]0B:AB:39:7B:52:93  RSSI: -81\r\n\r\n[05] Device: [1]21:1C:4C:1C:23:30  RSSI: -61\r\n\r\n[06] Device: [1]2D:D9:D8:5E:63:D1  RSSI: -53\r\n', 
+            '\r\n[07] Device: [1]42:D3:6E:74:E8:2E  RSSI: -63\r\n\r\n[08] Device: [1]E8:7A:85:7D:30:83  RSSI: -75\r\n\r\n[08] Device: [1]E8:7A:85:7D:30:83  RSSI: -75 (Buds2 Pro)\r\n\r\n[09] Device: [1]50:BF:BD:1D:9D:BE  RSSI: -75\r\n\r\n[10] Device: [1]79:D9:20:E5:9C:28  RSSI: -68\r\n', 
+            '\r\n[11] Device: [1]70:07:AA:23:1E:A9  RSSI: -77\r\n\r\n[12] Device: [1]03:04:9A:36:93:CB  RSSI: -76\r\n\r\n[13] Device: [0]18:EE:69:2B:C4:0C  RSSI: -78\r\n\r\n[14] Device: [1]76:82:88:3B:5F:20  RSSI: -60\r\n\r\n[15] Device: [1]E7:F4:C0:FE:9C:3D  RSSI: -79\r\n\r\n[16] Device: [1]4C:C8:33:58:FC:D9  RSSI: -77\r\n', 
+            '\r\n[17] Device: [1]74:7A:14:FD:E6:1B  RSSI: -83\r\n', 
+            '\r\n[18] Device: [1]C0:A0:0D:52:07:5B  RSSI: -66 (CREST-CR5\x03)\r\n\r\n[19] Device: [1]13:29:61:D8:EA:48  RSSI: -77\r\n\r\n[20] Device: [1]10:A1:4F:EB:0E:05  RSSI: -66\r\n', 
+            '\r\n[21] Device: [0]44:73:D6:50:63:25  RSSI: -86\r\n\r\n[21] Device: [0]44:73:D6:50:63:25  RSSI: -86 (MeetUp Soft Remote)\r\n\r\n[22] Device: [1]C0:07:64:16:74:97  RSSI: -57 (CREST-CR5\x03)\r\n', 
+            '\r\n[23] Device: [1]2F:80:CA:D7:42:7B  RSSI: -77\r\n', 
+            '\r\n[24] Device: [1]C3:84:6F:29:BE:67  RSSI: -81 (CREST-CR5\x03)\r\n', 
+            '\r\n[25] Device: [1]CA:DE:47:DE:62:FC  RSSI: -83 (CREST-CR5\x03)\r\n', 
+            '\r\n[26] Device: [1]53:41:13:DD:E6:84  RSSI: -77\r\n', 
+            '\r\n[27] Device: [1]D0:4E:F6:74:A6:2A  RSSI: -56\r\n', 
+            '\r\n[28] Device: [1]CC:5E:49:15:CF:36  RSSI: -84 (CREST-CR5\x03)\r\n\r\n[29] Device: [1]CE:37:A8:0E:3A:92  RSSI: -91 (CREST-CR5\x03)\r\n', 
+            '\r\n[30] Device: [1]70:73:89:5F:8F:95  RSSI: -90\r\n', 
+            '\r\n[31] Device: [1]C9:21:EE:87:53:D4  RSSI: -72\r\n', 
+            '\r\n[32] Device: [1]C6:3B:D5:50:11:8C  RSSI: -85 (CREST-CR5\x03)\r\n', 
+            '\r\n[33] Device: [1]FD:39:95:F3:F8:24  RSSI: -72 (SMI-M1S)\r\n'
+        ]
+        """
 
     # def read(self, uuid):
     #     logger.debug(f'ble-bleuio read: {uuid}')

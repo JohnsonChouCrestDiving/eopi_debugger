@@ -5,7 +5,7 @@ block_cipher = None
 
 
 a = Analysis(
-    ['d:\\Git\\python\\debug_tool\\crest_debugger\\crest_debugger.pyw'],
+    ['crest_debugger.pyw'],
     pathex=[],
     binaries=[],
     datas=[],

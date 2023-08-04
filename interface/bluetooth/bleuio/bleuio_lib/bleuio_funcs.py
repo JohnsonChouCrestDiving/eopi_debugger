@@ -47,7 +47,6 @@ class BleuIo(object):
                     else:
                         pass
                 retry_count += 1
-            time.sleep(2)
 
             try:
                 self._serial = serial.Serial(
@@ -137,9 +136,10 @@ class BleuIo(object):
                 if self._debug:
                     print("FROM BUFFER: " + self.rx_buffer.decode("utf-8", "ignore"))
                 if self._scanning:
-                    self.rx_scanning_results.append(
-                        self.rx_buffer.decode("utf-8", "ignore")
-                    )
+                    if "Device" in self.rx_buffer.decode("utf-8", "ignore"):
+                        self.rx_scanning_results.append(
+                            self.rx_buffer.decode("utf-8", "ignore")
+                        )
                 if self._spsstream:
                     self.rx_sps_results.append(self.rx_buffer.decode("utf-8", "ignore"))
                 if not self.__get_rx_state() == "rx_ready" and not self._scanning:
@@ -737,6 +737,7 @@ class BleuIo(object):
 
     def __at_gapscan(self, timeout):
         response = ""
+        self.rx_scanning_results = []
         if not timeout == 0:
             self.send_command("AT+GAPSCAN=" + str(timeout))
             self._scanning = True
@@ -754,7 +755,6 @@ class BleuIo(object):
                 if self.__get_rx_state().__eq__("rx_ready"):
                     return response
         if timeout == 0:
-            self.rx_scanning_results = []
             self.send_command("AT+GAPSCAN")
             while not self.__get_rx_state().__eq__("rx_ready"):
                 if self.rx_buffer.decode("utf-8", "ignore").__contains__(
@@ -1666,7 +1666,12 @@ class BleuIo(object):
         :return: string[]
         """
         self.__at_gattcwriteb(uuid, data)
-        time.sleep(0.5)
+        res_str = ''
+        retry_cnt = 0
+        while ('Hex' not in res_str and retry_cnt < 500):
+            time.sleep(0.01)
+            res_str = ''.join(self.rx_response)
+            retry_cnt += 1
         self.__set_rx_state("rx_ready")
         return self.rx_response
 

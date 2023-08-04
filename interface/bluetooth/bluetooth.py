@@ -5,6 +5,7 @@ import functools
 
 from PyQt5.QtCore import *
 from collections import deque
+from enum import Enum
 import logging
 import time
 import ctypes
@@ -34,7 +35,7 @@ if getattr(sys, 'frozen', None):
 else:
     log_file_path = os.path.join(os.getcwd(), 'log', 'logging.conf')
 fileConfig(log_file_path)
-logger = logging.getLogger()
+logger = logging.getLogger('rotatingFileLogger')
 logger.setLevel(0)
 
 target_name = 'CREST-CR5'
@@ -106,14 +107,11 @@ class Bluetooth_LE(QThread):
             return args_func_work
 
     def select_interface(self, module):
-        use_bleak = 0
-        use_bluegiga_dongle = 1
-        use_bleuio_dongle = 2
-        if module == use_bleak:
+        if module == dongle.bleak.value:
             self.client = ble_bleak()
-        elif module == use_bluegiga_dongle:
+        elif module == dongle.blueGiga.value:
             self.client = ble_bluegiga_dongle()
-        elif module == use_bleuio_dongle:
+        elif module == dongle.bleuio.value:
             self.client = ble_bleuio_dongle()
         else:
             pass
@@ -134,9 +132,9 @@ class Bluetooth_LE(QThread):
     def check_timeout(self):
         return time.time() - self.connect_mark_time > self.timeout
 
-    def connect(self, addr):
+    def connect(self, addr, addr_type=pygatt.BLEAddressType.random):
         if self.client != None and not self.is_connect():
-            self.client.connect(addr)
+            self.client.connect(addr, addr_type)
             self.connect_mark_time = time.time()
             
     def is_connect(self):
@@ -148,29 +146,28 @@ class Bluetooth_LE(QThread):
     #     logger.debug('get_handle: {:02X}'.format(handle))
     #     return handle
 
-    @device_is_connect
+    # @device_is_connect
     def dicover_characteristics(self):
         pass
 
-    @device_is_connect
+    # @device_is_connect
     def enable_all_notify(self):
         for info in self.subscribe_list:
             self.subscribe(info['uuid'], info['indication'])
 
-    @device_is_connect
+    # @device_is_connect
     def subscribe(self, uuid, indication=True):
         self.client.subscribe(uuid, callback=self.handle_received_data, indication=indication)
     
-    @device_is_connect
+    # @device_is_connect
     def send_command(self, uuid, command:list, is_read:bool):
         self.client.send_command(uuid, command, is_read)
     
-    @device_is_connect
+    # @device_is_connect
     def handle_received_data(self, handle, value):
         logger.debug('receive_data - handle: 0x{:02X}, command: {}'.format(handle, ['{:02X}'.format(i) for i in value]))
         
         self.received.append({'source': 'BLE', 'data': {'handle': handle, 'value': list(value)}})
-        self.rx_data.emit({'source': 'BLE', 'data': {'handle': handle, 'value': list(value)}})
 
     def write(self, uuid, command):
         self.send_command(uuid, command, False)
@@ -198,7 +195,7 @@ class Bluetooth_LE(QThread):
     def get_single_data(self, timeout=5):
         return self.get_data(1, timeout=timeout)[0]['data']['value'][4:-1]
 
-    @device_is_connect
+    # @device_is_connect
     def disconnect(self):
         self.client.disconnect()
 
@@ -244,6 +241,11 @@ class Bluetooth_LE(QThread):
                 else:
                     crc <<= 1
         return crc & 0xff
+
+class dongle(Enum):
+    bleak       = 0
+    blueGiga    = 1
+    bleuio      = 2
 
 if __name__ == '__main__':
     a = Bluetooth_LE()
