@@ -153,7 +153,23 @@ class Data_convertor():
             text += '\n'
         text += '   ***********************************************\n'
         return text
+    
+    def u8_list_to_hexstr(self, u8list) -> str:
+        return ''.join(['{:02X}'.format(x) for x in u8list])
+    
+    def float_2_u8list(self, f: float):
+        # Ex. 3.14159 => [64, 73, 15, 208]
+        bytes_data = struct.pack('f', f)
+        uint8_list = [byte for byte in bytes_data]
+        uint8_list.reverse()
+        return uint8_list
 
+    def u8list_2_float(self, u8List: list):
+        # Ex. [64, 73, 15, 208] => 3.14159
+        u8List.reverse()
+        bytes_data = bytes(u8List)
+        f = struct.unpack('f', bytes_data)[0]
+        return f
 
 if __name__ == '__main__':
     cov = Data_convertor()

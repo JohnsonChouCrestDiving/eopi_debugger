@@ -6,10 +6,6 @@ if six.PY3:
   from PyQt5.QtGui import QPainter
   from PyQt5.QtCore import pyqtSignal, Qt, QSize, QTimer, QByteArray, QRectF, pyqtProperty
   from PyQt5.QtSvg import QSvgRenderer
-else:
-  from PyQt4.QtGui import QApplication, QWidget, QPainter, QGridLayout, QSizePolicy, QStyleOption
-  from PyQt4.QtCore import pyqtSignal, Qt, QSize, QTimer, QByteArray, QRectF, pyqtProperty
-  from PyQt4.QtSvg import QSvgRenderer
 
 class QLed(QWidget):
     Circle   = 1
@@ -384,8 +380,8 @@ class QLed(QWidget):
         QWidget.mouseReleaseEvent(self, event)
 
     def toggleValue(self): 
-	    self.m_value=not self.m_value;
-	    self.update()
+        self.m_value=not self.m_value
+        self.update()
 
 if __name__=="__main__":
     from sys import argv, exit

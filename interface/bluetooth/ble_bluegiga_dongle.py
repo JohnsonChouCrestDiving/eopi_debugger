@@ -36,13 +36,18 @@ class ble_bluegiga_dongle():
         super(ble_bluegiga_dongle, self).__init__()
         self.adapter = pygatt.BGAPIBackend()
         self.device = None
+        self.adapter.start()
 
-    def connect(self, addr):
+    def scan(self, timeout=10, scan_cb=None):
+        logger.debug(f'ble-bluegiga scan ...')
+        self.adapter.scan(timeout=timeout, scan_cb=scan_cb)
+    
+    def connect(self, addr, addr_type):
         logger.debug(f'ble-bluegiga connect {addr}...')
         try:
-            self.adapter.start()
+            # self.adapter.start()
             # if CR5 address_type = pygatt.BLEAddressType.random
-            self.device = self.adapter.connect(addr, address_type=pygatt.BLEAddressType.public)
+            self.device = self.adapter.connect(address=addr, address_type=addr_type)
             logger.debug(f'ble-bluegiga connect status: {self.device != None}')
         except:
             logger.debug(f'ble-bluegiga connect ERROR !!!!!')
@@ -51,7 +56,7 @@ class ble_bluegiga_dongle():
         logger.debug(f'ble-bluegiga disconnect...')
         try:
             self.device.disconnect()
-            self.adapter.stop()
+            # self.adapter.stop()
             self.device = None
             logger.debug(f'ble-bluegiga disconnect status: {self.device == None}')
         except:
@@ -60,7 +65,7 @@ class ble_bluegiga_dongle():
     def is_connect(self):
         return self.device != None
 
-    def send_command(self, uuid, datas:list):
+    def send_command(self, uuid, datas:list, is_read = False):
         logger.debug(f'ble-bluegiga send command: uuid: {uuid}, command:{datas}')
         self.device.char_write(uuid, bytearray(datas))
         logger.debug(f'ble-bluegiga {uuid} send command status: success')
@@ -79,6 +84,10 @@ class ble_bluegiga_dongle():
         except:
             logger.debug(f'ble-bluegiga enable notify {uuid} status: ERROR !!!!!')
 
+    def dicover_characteristics(self):
+        logger.debug(f'ble-bluegiga dicover characteristics ...')
+        return self.adapter.discover_characteristics(1)
+
 
     def get_handle(self, uuid='6e400002-b5a3-f393-e0a9-e50e24dcca9e'):
         handle = self.device.get_handle(uuid)
@@ -90,5 +99,6 @@ if __name__ == '__main__':
     address4 = 'E8:E9:2E:EC:9E:8A'
     a = ble_bluegiga_dongle()
     a.connect(address4)
-    time.sleep(5)
+    print(a.dicover_characteristics())
+    print('finish discover')
     a.disconnect()
