@@ -1,18 +1,14 @@
 import sys,os
-import threading
-import functools
 import re
 import time
 import logging
 
 from .bleuio.bleuio_lib.bleuio_funcs import BleuIo
 from collections import defaultdict
-from datetime import datetime
 from logging.config import fileConfig
 from binascii import unhexlify
 from common.convert import Data_convertor as cov
-from pygatt.backends import BLEBackend, Characteristic, BLEAddressType
-from pygatt.backends.bgapi.bgapi import AdvertisingAndScanInfo
+from pygatt.backends import BLEAddressType
 
 
 def resource_path(relative):
@@ -29,7 +25,7 @@ if getattr(sys, 'frozen', None):
 else:
     log_file_path = os.path.join(os.getcwd(), 'log', 'logging.conf')
 fileConfig(log_file_path)
-logger = logging.getLogger('RotatingFileHandler')
+logger = logging.getLogger('rotatingFileLogger')
 logger.setLevel(0)
 cov = cov()
 
@@ -71,15 +67,16 @@ class ble_bleuio_dongle():
         return rx_res
 
     def _get_GAP_role(self):
-        while 1:
+        GAP_role = ''
+        try:
             rx_res = self._adapter.at_gapstatus()
-            try:
-                elements = rx_res[0].split('\r\n')
-            except:
-                continue
-            if elements.__len__() > 1: break
+            elements = rx_res[0].split('\r\n')
 
-        GAP_role = elements[1] # 取出需要的元素
+            for element in elements:
+                if 'role' in element:
+                    GAP_role = element # 取出需要的元素
+        except: pass
+
         logger.debug(f'ble-bleuio GAP role: {GAP_role}')
         return GAP_role
         """
@@ -97,15 +94,16 @@ class ble_bleuio_dongle():
     def is_connect(self):
         # rx_response of bleuio dongle return isn't safe, so use GATT table to check connected status
         # return self._peripheral_GATT_table.__len__() > 0
-        while 1:
+        connected_status = ''
+        try:
             rx_res = self._adapter.at_gapstatus()
-            try:
-                elements = rx_res[0].split('\r\n')
-            except:
-                continue
-            if elements.__len__() > 3: break
+            elements = rx_res[0].split('\r\n')
 
-        connected_status = elements[3] # 取出需要的元素
+            for element in elements:
+                if 'Conn' in element:
+                    connected_status = element # 取出需要的元素
+        except: pass
+
         if connected_status == 'Connected':
             logger.info('ble-bleuio already connected peripheral')
         else:
@@ -113,15 +111,16 @@ class ble_bleuio_dongle():
         return connected_status == 'Connected'
     
     def _is_advertising(self):
-        while 1:
+        advertising_status = ''
+        try:
             rx_res = self._adapter.at_gapstatus()
-            try:
-                elements = rx_res[0].split('\r\n')
-            except:
-                continue
-            if elements.__len__() > 5: break
+            elements = rx_res[0].split('\r\n')
 
-        advertising_status = elements[5] # 取出需要的元素
+            for element in elements:
+                if 'Advertis' in element:
+                    advertising_status = element # 取出需要的元素
+        except: pass
+
         logger.debug(f'ble-bleuio is {advertising_status}')
         return advertising_status == 'Advertising'
     
@@ -143,7 +142,7 @@ class ble_bleuio_dongle():
     def send_command(self, uuid:str, cmd_list:list, is_read: bool):
         handle = self._get_handle(uuid)
         cmd = cov.u8_list_to_hexstr(cmd_list)
-        logger.info(f'ble-bleuio send command: handle:{handle}, command:{cmd}')
+        logger.info(f'ble-bleuio send command: handle:{handle}, command:{cmd} ({cmd_list})')
 
         try:
             if handle is None:
@@ -177,7 +176,6 @@ class ble_bleuio_dongle():
     def _get_handle(self, uuid:str) -> str:
         uuid = uuid.lower()
         handle = None
-        logger.debug(f'ble-bleuio get {uuid} handle...')
 
         debug_cnt = 0
         while len(self._peripheral_GATT_table) == 0 and debug_cnt < 3:
@@ -187,14 +185,22 @@ class ble_bleuio_dongle():
         for item in self._peripheral_GATT_table:
             if item[2] == uuid:
                 handle = item[0]
+                logger.debug(f'ble-bleuio get {uuid} handle: {item[0]}')
                 break
 
-        if handle is not None:
-            logger.debug(f'ble-bleuio get {uuid} handle: {item[0]}')
-            return handle
-        else:
-            logger.warning(f'ble-bleuio No found characteristic matching {uuid}')
-            return None
+        if handle == None:
+            logger.warning(f'ble-bleuio No found characteristic matching {uuid}, try again...')
+            ## try again ##
+            self._peripheral_GATT_table.clear()
+            self._generate_GATT_table()
+            for item in self._peripheral_GATT_table:
+                if item[2] == uuid:
+                    handle = item[0]
+                    logger.debug(f'ble-bleuio get {uuid} handle: {item[0]}')
+                    break
+            if handle == None:
+                logger.warning(f'ble-bleuio No found characteristic matching {uuid}')
+        return handle
     
     def _generate_GATT_table(self, simulat_dat = None):
         """
@@ -315,24 +321,33 @@ class ble_bleuio_dongle():
             if len(cwriteb_rx_res) != 0:
                 data_first_process = ''.join(cwriteb_rx_res)
                 data_second_process = data_first_process.split('\r\n')
-                for i in range (len(data_second_process)):
-                    if i < 6 or data_second_process[i] is None:
+                for data in data_second_process:
+                    if data == '' or data_second_process.index(data)<3:
                         continue
-                    elif i % 6 == 0:
+                    elif ('notification' in data 
+                          or 'indication' in data):
                         handle_type, conn_idx_in_bleuio, handle, variable_length = (
-                            self._process_notification_header(data_second_process[i])
+                            self._process_notification_header(data)
                         )
-                    elif i % 6 == 2:
-                        Value_received = data_second_process[i].split(':')[1].strip()
-                    elif i % 6 == 3:
-                        Hex = data_second_process[i].split(':')[1].strip()
-                    elif i % 6 == 4:
-                        msg_size = data_second_process[i].split(':')[1].strip()
+                    elif 'Value received' in data:
+                        Value_received = data.split(':')[1].strip()
+                    elif 'Hex' in data:
+                        Hex = data.split(':')[1].strip()
                         if handle in self._callbacks:
                             for callback in self._callbacks[handle]:
                                 callback(int(handle), list(unhexlify(Hex[2:])))
-        except:
-            logger.error(f'ble-bleuio convert cwriteb() Rx response fail,cwriteb_rx_res: {cwriteb_rx_res}')
+                    elif 'Size' in data:
+# TODO: cmd: 0xD0130000D2的回覆有Size資訊，但不知道為甚麼不會進來這裡，所以把呼叫callback的步驟放在Hex
+                        msg_size = data.split(':')[1].strip()
+                    elif 'completed' in data:
+                        send_status = data.split('status=')[1]
+                    else: pass
+        except Exception as e:
+            logger.error(
+                f'ble-bleuio convert cwriteb() Rx response fail.\
+                \nreason: {e}.\
+                \ncwriteb_rx_res: {cwriteb_rx_res}'
+            )
         """
             The cwriteb_rx_res data example:
             [

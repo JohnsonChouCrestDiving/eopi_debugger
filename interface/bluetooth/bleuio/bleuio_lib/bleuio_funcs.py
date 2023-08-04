@@ -1666,7 +1666,12 @@ class BleuIo(object):
         :return: string[]
         """
         self.__at_gattcwriteb(uuid, data)
-        time.sleep(0.7)
+        res_str = ''
+        retry_cnt = 0
+        while ('Hex' not in res_str and retry_cnt < 500):
+            time.sleep(0.01)
+            res_str = ''.join(self.rx_response)
+            retry_cnt += 1
         self.__set_rx_state("rx_ready")
         return self.rx_response
 
